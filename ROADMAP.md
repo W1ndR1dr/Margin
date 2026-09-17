@@ -57,7 +57,8 @@ STL export for printing.
 14. [ ] Reporting / tumor board export / de-identified sharing                — v0.6
 15. [ ] Click-prompted tumour / node contouring (nnInteractive, VISTA-3D, SAM)  — v0.6
 16. [ ] Margin MCP server: Claude drives segment / measure / report            — v0.7
-17. [ ] LLM reasoning layer over structured findings (pixels stay local)       — v0.7
+17. [ ] In-app Claude panel: Agent SDK + Margin MCP tools; only structure names,
+        measurements and derived numbers are sent, shown verbatim to the user   — v0.7
 18. [ ] Learn-from-corrections loop (CT foundation embeddings + probes)        — v0.8
 
 Note (2026-09-17): personal, non-commercial tool, so non-commercial weights (VISTA-3D,

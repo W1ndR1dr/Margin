@@ -142,3 +142,19 @@ No panoramic reformat. Build on the skull / mandible / teeth masks:
   crossings; tooth-in-line-of-fracture flag; dental arch relationship.
 - Plate and screw planning on the surface (shares the VSP osteotomy tooling).
 Separate "Trauma" findings card; every line drawn on the 3D surface.
+
+## Staging tool (Brian, 2026-09-17: "would want a staging tool to try and stage; needs to know what path is")
+
+AJCC 8 engine (frontend/src/staging, pure TS, rule trace) combining imaging
+descriptors Margin measures, exam findings the surgeon enters, and pathology
+pasted from the CAP synoptic report and parsed locally (never sent out).
+Outputs cTNM and pTNM side by side, stage group, the trace ("T4a: cortical
+mandible invasion, imaging"), and conflicts between imaging and pathology.
+Sites: oral cavity (DOI), oropharynx p16+/−, larynx/hypopharynx by subsite,
+nasopharynx, salivary, sinonasal, thyroid by histology/age, cutaneous SCC,
+unknown primary, mucosal melanoma. UI wiring after the v2 shell lands.
+
+## Hold (2026-09-17)
+After the in-flight agents finish (MR backend, HaN-Seg validation, UI overhaul
++ import UX, staging engine, airway reference-range session), no new work is
+launched until Brian says so.

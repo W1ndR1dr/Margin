@@ -55,6 +55,13 @@ STL export for printing.
 12. [ ] PET/CT fusion, SUV, MTV                                               — v0.5
 13. [ ] AI organ segmentation (TotalSegmentator, CPU)                         — v0.6
 14. [ ] Reporting / tumor board export / de-identified sharing                — v0.6
+15. [ ] Click-prompted tumour / node contouring (nnInteractive, VISTA-3D, SAM)  — v0.6
+16. [ ] Margin MCP server: Claude drives segment / measure / report            — v0.7
+17. [ ] LLM reasoning layer over structured findings (pixels stay local)       — v0.7
+18. [ ] Learn-from-corrections loop (CT foundation embeddings + probes)        — v0.8
+
+Note (2026-09-17): personal, non-commercial tool, so non-commercial weights (VISTA-3D,
+nnInteractive, MedSAM2) are in scope. See RESEARCH.md section 0.
 
 ## Stack decision (2026-09-17)
 

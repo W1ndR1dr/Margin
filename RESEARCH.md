@@ -36,6 +36,23 @@ it is not mandatory for *resolution*; it is still recommended for *pin isolation
 
 ---
 
+## 0. License and architecture context (added 2026-09-17 after review)
+
+Margin is a **personal, non-commercial tool**. Non-commercial weights are therefore usable:
+NVIDIA VISTA-3D (OneWay Noncommercial), nnInteractive (CC BY-NC-SA), MedSAM2, and HaN-Seg
+may be used for training as well as validation. Item 10 below ("skip VISTA3D weights") is
+superseded: VISTA-3D is **evaluate**. Clinical use on real patients remains an institutional
+question independent of licenses.
+
+Architecture is **AI-native with auditable numbers**: learned models do all perception
+(organ, vessel, node-level, canal masks; click-prompted tumour and node contours); geometry
+turns masks into the published clinical criteria (degrees of carotid contact, mm to the
+pharyngeal wall, airway CSA reduction, volume against prognostic thresholds) so every AI
+result carries a number drawn on the image; an LLM layer reasons over the structured
+findings (report drafting, resectability flags, tumour board summary) with pixels never
+leaving the device; and the backend is exposed as an MCP server so Claude can drive Margin
+directly. Surgeon corrections are kept as training data for CT-foundation-embedding probes.
+
 ## 1. Executive summary
 
 1. **Adopt TotalSegmentator now.** Its Apache-2.0 head/neck subtasks (`headneck_bones_vessels`,

@@ -239,3 +239,212 @@ them. Algorithm (TOOLS-SPEC section 4):
 
 Budget: under 10 s for a 512 x 512 x 180 series on CPU (~4-6 s cold, ~2-3 s
 once the body mask is cached). Every route logs its timings to stderr.
+
+## AI API v0.3
+
+Learned segmentation. Two models, both run **out of process**: the FastAPI app
+(Python 3.13) never imports torch, nnU-Net or TotalSegmentator — it launches
+`backend/ai/run_*.py` with the interpreter at
+`%LOCALAPPDATA%\HNRad\venv-ai\Scripts\python.exe` and reads a
+one-JSON-object-per-line protocol off its stdout (`backend/ai/README.md`).
+A crash, an OOM or a torch upgrade in the inference venv therefore cannot take
+the DICOM library or the viewer offline.
+
+Errors are `{detail: string}` as everywhere else: **404** for an unknown
+`series_uid` / `job_id`, **400** for an unknown model or task.
+
+### Conventions
+
+- Jobs run **one at a time** on a single background worker thread. `POST`
+  returns immediately; the client polls.
+- `progress` is 0–1. The app owns the ends (0.03 after the NIfTI export, 1.0
+  when the labels are registered); everything between comes from the runner.
+- `created_at` / `started_at` / `finished_at` are **unix epoch seconds**
+  (float, UTC); the last two are `null` until they happen.
+- `log_tail` is the last 80 lines of the runner's merged stdout+stderr plus the
+  app's own notes. It is for a status panel, not for parsing.
+- A structure's `color` is `[r, g, b]`, 0–255, and is **stable** for a given
+  structure name across runs, processes and machines (see *Colours*).
+
+### Models
+
+```
+GET  /api/ai/models
+     -> {runtime: {venv_python, venv_present, totalseg_home, cache_root,
+                   threads, totalsegmentator_version},
+         models: [
+           {model:'totalseg', title, available, license, default_roi_subset:[...],
+            tasks: [{task, weights_present, missing_weights:[...], n_classes,
+                     classes:{"1":"spleen", ...}, dataset_ids:[...],
+                     crop_from, crop_dataset_ids:[...],
+                     fast_allowed, fast_weights_present, license}]},
+           {model:'hnlnl', title, available, weights_present, weights_dir,
+            license, source, citation, note, n_classes, classes, tasks:[]}
+         ]}
+```
+
+Class lists come from `backend/ai/class_map.json`, which `backend/ai/dump_classes.py`
+dumps from the **installed** TotalSegmentator — never copied from a README.
+`weights_present` accounts for the crop model a task depends on: every head/neck
+subtask runs `total` first to find its crop box (and `teeth` runs
+`craniofacial_structures`), so a subtask with its own weights but no `total`
+weights reports `weights_present: false` and lists `Dataset291_*` in
+`missing_weights`.
+
+Tasks offered, all **Apache-2.0 code and weights**, no licence key:
+`total` (117 classes), `headneck_bones_vessels` (12), `head_glands_cavities` (19),
+`headneck_muscles` (23), `craniofacial_structures` (7), `teeth` (77).
+TotalSegmentator tasks whose weights need a free non-commercial key
+(`heartchambers_highres`, `tissue_types`, `brain_structures`, `face`,
+`coronary_arteries`, `appendicular_bones`, `thigh_shoulder_muscles`,
+`aortic_sinuses`, …) are **not offered**; none are needed for head and neck.
+
+### Segment
+
+```
+POST /api/ai/segment
+     body {series_uid,
+           model?: 'totalseg' | 'hnlnl'      (default 'totalseg'),
+           tasks?: [...],                     (totalseg only; default
+                                               ['headneck_bones_vessels'])
+           roi_subset?: [...],                (applies to the `total` task only)
+           fast?: false}
+     -> {job_id, status:'queued', model, tasks, roi_subset, fast}
+```
+
+- `roi_subset` restricts the 117-class `total` model. Requesting `total`
+  **without** one substitutes `hnrad.ai.DEFAULT_ROI_SUBSET` (thyroid, trachea,
+  oesophagus, skull, brain, spinal cord, both common carotids, subclavians,
+  brachiocephalic trunk and veins, clavicles, C1–C7): the unrestricted forward
+  pass wants ~20 GB, which 32 GB should not be asked for.
+- `fast` only affects the `total` task (3 mm weights instead of 1.5 mm); every
+  subtask sets `disallow_fast` upstream, so passing it with only subtasks
+  selected changes nothing but the cache key. For `hnlnl` it means a
+  non-overlapping sliding window (step 1.0 instead of 0.5).
+- `tasks` on the `hnlnl` model is a 400.
+
+### Jobs
+
+```
+GET    /api/ai/jobs            -> [job, ...]        newest first
+GET    /api/ai/jobs/{job_id}   -> job
+DELETE /api/ai/jobs/{job_id}   -> {job_id, status, cancelled}
+
+job = {job_id, series_uid, model, tasks, roi_subset, fast,
+       status: 'queued'|'running'|'done'|'error',
+       progress, message, cached,
+       created_at, started_at, finished_at,
+       log_tail: [...],
+       structures?: [{name, label_id, label_value, n_voxels, volume_ml,
+                      color:[r,g,b]}],
+       error?}
+```
+
+`DELETE` on a `queued` or `running` job cancels it: the subprocess is
+terminated and the job ends as `status:'error'` with `error:'cancelled'` —
+there is deliberately no fifth status. `DELETE` on a `done` or `error` job
+removes it from the list. Either way an unknown `job_id` is a 404.
+
+### Labels: AI output *is* an analysis label
+
+When a job finishes, every non-empty structure is registered in the same
+in-memory label store as `POST /api/analysis/region-grow`, so
+`GET /api/analysis/label/{id}/stats`, `/mask`, `/mesh`,
+`DELETE /api/analysis/label/{id}` and `POST /api/analysis/distance` work on AI
+masks **unchanged**. The `label_id` in `structures[]` is exactly the `label_id`
+those endpoints take.
+
+Registration is **lazy**. A `headneck_muscles` + `total` run yields ~40
+structures; at 512×512×180 that is ~2 GB of `uint8` masks and the label LRU
+holds 20. So a job hands out a stable `label_id` per structure immediately and
+materialises the mask from the cached multi-label NIfTI the first time one is
+asked for (well under a second). The practical consequence inverts the v0.2
+rule: an **AI** `label_id` keeps working after the LRU evicts it, for as long
+as the disk cache survives. It 404s only once the cache directory is deleted.
+
+`n_voxels` and `volume_ml` in `structures[]` are what the runner measured; the
+full `LabelStats` (bbox, centroid, PCA diameters, HU statistics) is computed on
+demand by `/stats`.
+
+### Cache
+
+```
+%LOCALAPPDATA%\HNRad\ai-cache\<series_uid>\<model>\seg-<variant>.nii.gz
+%LOCALAPPDATA%\HNRad\ai-cache\<series_uid>\<model>\result-<variant>.json
+```
+
+`<variant>` is a 12-hex-character hash of `{tasks, roi_subset, fast}`, so
+different request shapes coexist and never collide. A repeat request is served
+from disk: the job still goes `queued → running → done`, but with
+`cached: true` and no subprocess, typically in under a second. Deleting the
+directory is the supported way to force a recompute.
+
+The series is handed to the model as `.nii.gz` written by SimpleITK from the
+cached HU volume, on the series' own grid. SimpleITK holds geometry in LPS and
+performs the LPS→RAS flip on write, so the file's `srow` equals
+
+```
+P_lps = origin + i·dx·row_dir + j·dy·col_dir + k·dz·slice_dir   (i=col, j=row, k=slice)
+P_ras = diag(-1, -1, +1) · P_lps
+```
+
+which is the expression `segmentation.ijk_to_lps` already uses — an AI mask and
+a region-grown mask land on identical millimetres. A runner **must** write its
+segmentation on that same grid; a shape mismatch is reported as a stale cache
+rather than silently resampled.
+
+### Colours
+
+`color` is assigned by structure *name*, deterministically (SHA-256 of the
+name, never `hash()`), so it is identical across runs, processes and machines:
+
+| family | colour | matches |
+|---|---|---|
+| arteries | red | carotid, `*_artery`, aorta, brachiocephalic trunk, alveolar/incisive canals |
+| veins | blue | jugular, `*_vein`, vena |
+| airway and air-filled spaces | cyan | trachea, `larynx_air`, nasal cavity, sinuses, pharynx, auditory canal |
+| cartilage | light grey | thyroid / cricoid / arytenoid cartilage |
+| bone | off-white | vertebrae, skull, mandible, hyoid, clavicle, zygoma, styloid, hard palate |
+| teeth | warm white | incisors, canines, premolars, molars, pulp, crowns, implants |
+| glands | yellow | thyroid, parotid, submandibular, sublingual, lacrimal |
+| muscles | rose | SCM, constrictors, trapezius, platysma, scalenes, prevertebral |
+| neural / orbit | pale violet | spinal cord, brain, optic nerve, globe, lens |
+| nodal levels | one hue per level | the 20 HNLNL levels, evenly spaced around the wheel |
+
+A left/right pair gets the *same* colour — it is the same structure. Anything
+unrecognised falls back to a muted deterministic colour rather than a random one.
+
+### HNLNL: 20 cervical nodal levels
+
+`model: 'hnlnl'` runs the CC0 model from
+<https://github.com/putzfn/HNLNL_autosegmentation_trained_models>
+(Putz F et al., *Deep learning for automatic head and neck lymph node level
+delineation provides expert-level accuracy*, Front Oncol 2023, PMID 36874135).
+Label values 1–20 map to `level_Ia`, `level_Ib_left/right`,
+`level_II_left/right`, `level_III_left/right`, `level_IVa_left/right`,
+`level_IVb_left/right`, `level_V_left/right`, `level_VIa`, `level_VIb`,
+`level_VIIa`, `level_VIIb_left/right`, `level_VIII_left/right`. The full table,
+its provenance and the evidence for the id alignment are in
+`backend/ai/README.md`.
+
+Three caveats belong in the contract, because they change how the output may be
+used:
+
+1. The published weights are **nnU-Net v1**, which neither `nnunetv2` nor any
+   Python 3.13 environment can load. `backend/ai/run_hnlnl.py` re-implements
+   nnU-Net v1 inference in torch from the shipped `plans.pkl`; the rebuilt
+   network loads the released checkpoint `strict=True`, 98/98 tensors.
+2. Margin runs a **single fold**, the 3d_fullres model **alone** (the paper
+   ensembles it with a 2d model), **without** mirror TTA and **without** the
+   repository's slice-plane-adjustment postprocessing. All four make the
+   contours worse than the published Dice. They are a starting contour to
+   correct, never a measurement.
+3. Laterality (`_left` / `_right`) is **not documented** upstream and is
+   unverified against a case of known laterality.
+
+### Budget
+
+Segmentation is a background job with a progress bar and a per-series cached
+result — never a click-and-wait. Geometry over the resulting masks (the v0.2
+Analysis API) stays the interactive layer, in milliseconds. Measured CPU wall
+times on the reference box are minutes, not seconds; see `RESEARCH.md` §2.5.

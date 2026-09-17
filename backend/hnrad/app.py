@@ -18,7 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
-from . import __version__, airway, analysis, config, db, segmentation
+from . import __version__, ai, airway, analysis, config, db, segmentation
 from .indexer import index_path
 
 # --------------------------------------------------------------------------
@@ -330,6 +330,14 @@ def _series_volume(series_uid: str) -> analysis.SeriesVolume:
 def _label_or_404(label_id: str) -> segmentation.Label:
     label = segmentation.LABELS.get(label_id)
     if label is None:
+        # AI structures are handed a label_id when their job finishes but the
+        # mask itself only gets built on first use, so a miss here is normal
+        # rather than fatal: rebuild it from the cached multi-label NIfTI.
+        try:
+            label = ai.rehydrate_label(label_id)
+        except ai.AiError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if label is None:
         raise HTTPException(
             status_code=404,
             detail="unknown label_id (labels live in memory and expire)",
@@ -520,3 +528,80 @@ def api_airway(body: AirwayRequest) -> dict[str, Any]:
         result["myer_cotton_grade"], time.perf_counter() - started,
     )
     return {"label_id": label.label_id, **result}
+
+
+# --------------------------------------------------------------------------
+# AI v0.3: TotalSegmentator and the HNLNL nodal-level model as background jobs
+#
+# Every model runs in a *separate* interpreter (backend/ai/* inside
+# %LOCALAPPDATA%\HNRad\venv-ai).  Nothing in this process ever imports torch.
+# --------------------------------------------------------------------------
+
+class AiSegmentRequest(BaseModel):
+    series_uid: str
+    model: str = "totalseg"
+    tasks: Optional[list[str]] = None
+    roi_subset: Optional[list[str]] = None
+    fast: bool = False
+
+
+def _job_or_404(job_id: str) -> ai.Job:
+    job = ai.JOBS.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="unknown job_id")
+    return job
+
+
+@app.get("/api/ai/models")
+def api_ai_models() -> dict[str, Any]:
+    """Which models and tasks are actually runnable right now.
+
+    Reports weights presence per task (including the crop model each head/neck
+    subtask depends on), the licence of each, and the class list read out of
+    the installed TotalSegmentator rather than out of a README.
+    """
+    return ai.model_catalog()
+
+
+@app.post("/api/ai/segment")
+def api_ai_segment(body: AiSegmentRequest) -> dict[str, Any]:
+    started = time.perf_counter()
+    _series_rows(body.series_uid)                # 404 early on a bad series
+    try:
+        job = ai.JOBS.submit(
+            series_uid=body.series_uid,
+            model=body.model,
+            tasks=body.tasks,
+            roi_subset=body.roi_subset,
+            fast=body.fast,
+        )
+    except ai.AiError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    log.info("POST /api/ai/segment series=%s model=%s tasks=%s fast=%s -> %s in %.3fs",
+             body.series_uid, body.model, body.tasks, body.fast, job.job_id,
+             time.perf_counter() - started)
+    return {"job_id": job.job_id, "status": job.status,
+            "model": job.model, "tasks": list(job.tasks),
+            "roi_subset": list(job.roi_subset) if job.roi_subset else None,
+            "fast": job.fast}
+
+
+@app.get("/api/ai/jobs")
+def api_ai_jobs() -> list[dict[str, Any]]:
+    return [j.public() for j in ai.JOBS.list()]
+
+
+@app.get("/api/ai/jobs/{job_id}")
+def api_ai_job(job_id: str) -> dict[str, Any]:
+    return _job_or_404(job_id).public()
+
+
+@app.delete("/api/ai/jobs/{job_id}")
+def api_ai_job_cancel(job_id: str) -> dict[str, Any]:
+    job = ai.JOBS.cancel(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="unknown job_id")
+    log.info("DELETE /api/ai/jobs/%s -> %s", job_id, job.status)
+    return {"job_id": job.job_id, "status": job.status,
+            "cancelled": job.status not in ("done",)}

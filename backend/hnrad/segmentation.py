@@ -262,9 +262,17 @@ class LabelStore:
         self.capacity = int(capacity)
 
     def put(self, series_uid: str, mask: np.ndarray,
-            meta: Optional[dict[str, Any]] = None) -> Label:
+            meta: Optional[dict[str, Any]] = None,
+            label_id: Optional[str] = None) -> Label:
+        """Store a mask and return its :class:`Label`.
+
+        ``label_id`` lets a caller re-materialise a label under an id it has
+        already handed out: :mod:`hnrad.ai` allocates ids for every AI
+        structure when a job finishes but only builds the masks when they are
+        first asked for.  Omit it (the default) for a brand new label.
+        """
         label = Label(
-            label_id=str(uuid.uuid4()),
+            label_id=str(label_id) if label_id else str(uuid.uuid4()),
             series_uid=series_uid,
             mask=np.ascontiguousarray(mask, dtype=np.uint8),
             meta=dict(meta or {}),

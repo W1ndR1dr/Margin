@@ -199,21 +199,85 @@ unzip it into
 & $py C:\Users\o948145\hnrad\tools\datasets\fetch_tcia.py --max-patients 10 --max-gb 15
 ```
 
-### If you want an open alternative
+---
 
-`ACRIN-HNSCC-FDG-PET-CT` **is** in the unrestricted list (confirmed: 
-`getPatient` returns real patients over the anonymous v1 API) and is head &
-neck squamous cell carcinoma PET/CT. It was **not** downloaded because the
-authorization covered only HNSCC and Head-Neck-PET-CT. If you want it, say so
-and run:
+## B2. ACRIN-HNSCC-FDG-PET-CT — ⛔ ALSO GATED (images), NOT DOWNLOADED
 
-```powershell
-& $py C:\Users\o948145\hnrad\tools\datasets\fetch_tcia.py --collection ACRIN-HNSCC-FDG-PET-CT --fallback ""
+This collection **is** listed by `getCollectionValues` and `getPatient` returns
+**258 real patients** over the anonymous v1 API — so it initially looks like an
+open alternative. **It is not.** A full scan of all 258 patients (run
+2026-09-17) gives this modality census:
+
+```
+Modality census across 258 patients: {'RTSTRUCT': 2085}
 ```
 
-Its own license and citation requirements must be reviewed on
-<https://www.cancerimagingarchive.net/collection/acrin-hnscc-fdg-pet-ct/>
-before use.
+**Zero CT. Zero PT.** 2085 RTSTRUCT series totalling ~36.5 MB is the entire
+public surface. Only the derived contour objects are public; the FDG-PET and CT
+images they were drawn on are withheld.
+
+Asking for a referenced image series directly by its UID — the UID read out of
+a public RTSTRUCT's `RTReferencedSeriesSequence` — is refused verbatim:
+
+```
+GET .../v1/getImage?SeriesInstanceUID=1.3.6.1.4.1.14519.5.2.1.7009.2405.720247470283241548082769013459
+HTTP 400
+Image with given SeriesInstanceUID,1.3.6.1.4.1.14519.5.2.1.7009.2405.720247470283241548082769013459, is not in public domain.
+```
+
+The collection page
+(<https://www.cancerimagingarchive.net/collection/acrin-hnscc-fdg-pet-ct/>)
+carries the same clause as HNSCC:
+
+> "Some data in this collection contains images that could potentially be used
+> to reconstruct a human face. The process for requesting access to these is
+> outlined in the NIH Controlled Data Access Policy page."
+
+So all three head & neck CT collections — HNSCC, Head-Neck-PET-CT and
+ACRIN-HNSCC-FDG-PET-CT — are behind the **same** dbGaP / NCI Data Commons gate
+described in section B. **No CT or PET was downloaded, and no
+`thumb_acrin_ct.png` / `thumb_acrin_pt.png` exist.** Nothing can be reported
+about the PET series' units, decay-correction or SUV scaling tags, because no
+PET file is retrievable.
+
+### License and citation (for the RTSTRUCTs, which *are* open)
+
+The API reports, on all 2085 series (`LicenseName` / `LicenseURI`):
+
+> **Creative Commons Attribution 4.0 International License** —
+> <https://creativecommons.org/licenses/by/4.0/>
+
+Required data citation:
+
+> Kinahan P, Muzi M, Bialecki B, Coombs L. *Data from the ACRIN 6685 Trial
+> HNSCC-FDG-PET/CT* [Data set]. The Cancer Imaging Archive, 2019.
+> doi:10.7937/K9/TCIA.2016.JQEJZZNG
+
+Note CC BY 4.0 is **more permissive than HaN-Seg** (no NC, no ND) — but it
+applies only to the contour objects that are actually served.
+
+### Selection table
+
+**Not produced — there was nothing to select.** The selection pass ran over all
+258 patients and found zero CT series, so the table has no rows. The scan
+itself is the result:
+
+| Collection | Patients | CT series | PT series | RTSTRUCT series | Public bytes |
+|---|---:|---:|---:|---:|---:|
+| ACRIN-HNSCC-FDG-PET-CT | 258 | **0** | **0** | 2085 | ~36.5 MB |
+
+### Why the orphan RTSTRUCTs were not imported
+
+They are contours with no underlying images. Each references a
+`SeriesInstanceUID` that returns *"is not in public domain"*, so hnrad would
+index 2085 series that carry no pixel data, produce no thumbnail and report
+`is_3d: false`. That is noise in the study browser with no diagnostic value, so
+they were deliberately left alone. Say the word if you want them anyway:
+
+```powershell
+& $py C:\Users\o948145\hnrad\tools\datasets\fetch_tcia.py `
+    --collection ACRIN-HNSCC-FDG-PET-CT --fallback "" --out-name TCIA-ACRIN-HNSCC
+```
 
 ### TCIA citation (required for any TCIA data)
 

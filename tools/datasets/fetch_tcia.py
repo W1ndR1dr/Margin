@@ -51,9 +51,14 @@ PRIMARY = "HNSCC"
 FALLBACK = "Head-Neck-PET-CT"
 
 # What a contrast-enhanced neck CT tends to be called.
-NECK_RE = re.compile(r"\b(NECK|H&N|HEAD.?AND.?NECK|HN)\b", re.I)
+NECK_RE = re.compile(r"\b(NECK|H&N|HEAD.?AND.?NECK|HN|HEADNECK)\b", re.I)
 CONTRAST_RE = re.compile(r"(W[/ ]?CONTRAST|WITH CONTRAST|\bC\+|\bIV\b|CONTRAST|\bCE\b|\bWC\b)", re.I)
 NONCON_RE = re.compile(r"(W/?O CONTRAST|WITHOUT CONTRAST|NON.?CON|\bNC\b)", re.I)
+# A PET attenuation-correction CT is still a real (low-dose, non-contrast) neck
+# CT, and is accepted when it is the only CT in the study.
+AC_RE = re.compile(r"(ATTEN|\bAC\b|CT ?AC|CTAC|\bWB\b|FUSION)", re.I)
+
+IMAGES_NOT_PUBLIC = "is not in public domain"
 
 GATE_REPORT = """
 ================================================================================
@@ -164,6 +169,9 @@ def score_ct(s: dict) -> tuple[int, list[str]]:
     elif thick is not None:
         score -= 10
         reasons.append(f"{thick} mm (out of 1-3 mm)")
+    if AC_RE.search(blob):
+        score += 10
+        reasons.append("PET attenuation-correction CT")
     return score, reasons
 
 
@@ -173,19 +181,27 @@ def pick_patients(session, collection: str, max_patients: int, max_bytes: int):
     log(f"{collection}: {len(patients)} patients")
 
     candidates = []
+    census: dict[str, int] = {}
     for i, p in enumerate(patients, 1):
         pid = f(p, "PatientId", "PatientID")
         code, series, _ = get(session, "getSeries", {"Collection": collection, "PatientID": pid})
         series = series or []
+        for s in series:
+            m = str(f(s, "Modality", default="?")).upper()
+            census[m] = census.get(m, 0) + 1
         if i % 25 == 0:
-            log(f"  scanned {i}/{len(patients)} patients")
+            log(f"  scanned {i}/{len(patients)} patients; modalities so far {census}")
         cts = [s for s in series if str(f(s, "Modality", default="")).upper() == "CT"]
         if not cts:
             continue
         scored = sorted(((score_ct(s), s) for s in cts), key=lambda x: -x[0][0])
         (best_score, reasons), best = scored[0]
         if best_score < 40:
-            continue
+            # Accept the PET attenuation-correction CT when it is the only CT
+            # the study offers -- still a usable (low-dose) neck CT.
+            if int(f(best, "ImageCount", default=0) or 0) < 100:
+                continue
+            reasons = reasons + ["accepted: only CT in study, >=100 slices"]
         study_uid = f(best, "StudyInstanceUID")
         same_study = [s for s in series if f(s, "StudyInstanceUID") == study_uid]
         rt = [s for s in same_study if str(f(s, "Modality", default="")).upper() == "RTSTRUCT"]
@@ -216,6 +232,15 @@ def pick_patients(session, collection: str, max_patients: int, max_bytes: int):
         c["download"] = want
         chosen.append(c)
         total += size
+
+    log(f"Modality census across {len(patients)} patients: {census}")
+    if not census.get("CT") and not census.get("PT"):
+        log("")
+        log("!! The unrestricted API exposes NO CT and NO PT series for this collection.")
+        log("!! Only derived objects (e.g. RTSTRUCT) are public; the images themselves")
+        log("!! are withheld.  Requesting a referenced image series by UID returns:")
+        log(f"!!     HTTP 400  \"...{IMAGES_NOT_PUBLIC}.\"")
+        log("!! This is the NIH Controlled Data Access gate -- see the README.")
     return chosen, total
 
 
@@ -252,7 +277,12 @@ def download_series(session, s: dict, out_root: Path) -> Path:
         return dest
 
     log(f"    {dest.name}: downloading {expected} images ({human(int(f(s,'FileSize',default=0) or 0))})")
-    r = session.get(BASE + "getImage", params={"SeriesInstanceUID": uid}, timeout=1800, stream=True)
+    r = session.get(BASE + "getImage", params={"SeriesInstanceUID": uid}, timeout=1800)
+    if r.status_code == 400 and IMAGES_NOT_PUBLIC in r.text:
+        raise SystemExit(
+            f"\nTCIA refused series {uid}:\n    {r.text.strip()}\n"
+            "This series is behind the NIH Controlled Data Access gate. STOPPING.\n"
+        )
     r.raise_for_status()
     buf = io.BytesIO(r.content)
     with zipfile.ZipFile(buf) as zf:
@@ -268,6 +298,8 @@ def main() -> int:
     ap.add_argument("--fallback", default=FALLBACK)
     ap.add_argument("--max-patients", type=int, default=10)
     ap.add_argument("--max-gb", type=float, default=15.0)
+    ap.add_argument("--out-name", default=None,
+                    help="folder name under studies\\public (default: TCIA-<collection>)")
     ap.add_argument("--dry-run", action="store_true", help="select and print the table, download nothing")
     args = ap.parse_args()
 
@@ -302,7 +334,7 @@ def main() -> int:
         log("--dry-run: nothing downloaded.")
         return 0
 
-    out_root = studies_public_root() / f"TCIA-{collection}"
+    out_root = studies_public_root() / (args.out_name or f"TCIA-{collection}")
     out_root.mkdir(parents=True, exist_ok=True)
     manifest = []
     for c in chosen:

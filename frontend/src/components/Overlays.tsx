@@ -2,6 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { CircleCheckBig, Info, Search, TriangleAlert, X } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { importFolder, openSeries } from '../library';
+import { carotid } from '../tools/carotid';
+import { airway } from '../tools/airway';
+import { QUICK_ADDS, armRegionGrow, quickAdd } from '../labels/structureStore';
 import { RAIL_TOOLS, viewer } from '../viewer/ViewerCore';
 import { SLAB_OPTIONS, VOLUME_PRESETS, WINDOW_PRESETS } from '../viewer/presets';
 import { APP_NAME } from '../config';
@@ -179,6 +182,42 @@ export function CommandPalette() {
           },
         });
       });
+    if (layout === 'mpr') {
+      list.push(
+        {
+          id: 'hn-carotid',
+          group: 'Head & neck',
+          label: 'Carotid encasement  (C)',
+          run: () => carotid.start(),
+        },
+        {
+          id: 'hn-airway',
+          group: 'Head & neck',
+          label: 'Airway analyser  (Y)',
+          run: () => airway.start(),
+        },
+        {
+          id: 'hn-structures',
+          group: 'Head & neck',
+          label: 'Segment — quick menu  (G)',
+          run: () => set({ structuresMenuOpen: true }),
+        },
+      );
+      QUICK_ADDS.forEach((q) =>
+        list.push({
+          id: `quick-${q.id}`,
+          group: 'Segment',
+          label: `${q.label} — ${q.hint}`,
+          run: () => void quickAdd(q.id),
+        }),
+      );
+      list.push({
+        id: 'quick-grow',
+        group: 'Segment',
+        label: 'Region grow from click',
+        run: () => armRegionGrow(),
+      });
+    }
     list.push(
       { id: 'screen-library', group: 'Go', label: 'Library', run: () => set({ screen: 'library' }) },
       { id: 'screen-view', group: 'Go', label: 'Viewer', run: () => set({ screen: 'view' }) },
@@ -314,6 +353,15 @@ const SHORTCUTS: Array<[string, Array<[string, string]>]> = [
     ],
   ],
   [
+    'Head & neck',
+    [
+      ['Carotid encasement', 'C'],
+      ['Airway analyser', 'Y'],
+      ['Segment quick menu', 'G'],
+      ['Cancel the running tool', 'Esc'],
+    ],
+  ],
+  [
     'Workspace',
     [
       ['Command palette', 'Ctrl K'],
@@ -359,6 +407,53 @@ export function ShortcutsSheet() {
               ))}
             </div>
           ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- structures quick menu (G) ---------------- */
+
+export function StructuresQuickMenu() {
+  const open = useAppStore((s) => s.structuresMenuOpen);
+  const layout = useAppStore((s) => s.layout);
+  const set = useAppStore((s) => s.set);
+  if (!open || layout !== 'mpr') return null;
+
+  const pick = (run: () => void) => {
+    set({ structuresMenuOpen: false, panelTab: 'structures', panelOpen: true });
+    window.setTimeout(run, 0);
+  };
+
+  return (
+    <div
+      className="scrim center"
+      onMouseDown={(e) => e.target === e.currentTarget && set({ structuresMenuOpen: false })}
+    >
+      <div className="dialog quick" role="dialog" aria-modal>
+        <div className="dialog-head">
+          <div style={{ flex: 1 }}>
+            <div className="dialog-title">Segment</div>
+            <div className="dialog-sub">
+              Threshold presets run on the whole volume; region grow starts from one click.
+            </div>
+          </div>
+          <button className="btn ghost icon" onClick={() => set({ structuresMenuOpen: false })}>
+            <X size={15} strokeWidth={1.8} />
+          </button>
+        </div>
+        <div className="quick-list">
+          {QUICK_ADDS.map((q) => (
+            <button key={q.id} className="palette-item" onClick={() => pick(() => void quickAdd(q.id))}>
+              <span className="main">{q.label}</span>
+              <span className="grp">{q.hint}</span>
+            </button>
+          ))}
+          <button className="palette-item" onClick={() => pick(() => armRegionGrow())}>
+            <span className="main">Region grow from click</span>
+            <span className="grp">then click inside the structure</span>
+          </button>
         </div>
       </div>
     </div>

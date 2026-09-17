@@ -1,0 +1,177 @@
+/* AI segmentation card — reuses the guided-tool chrome from carotid.css. */
+
+.ai-state {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-top: 11px;
+  padding: 9px 10px;
+  border-radius: var(--r-ctl);
+  border: 1px solid var(--hairline);
+  background: var(--panel);
+  font-size: var(--t-12);
+  line-height: 1.55;
+  color: var(--text-3);
+}
+
+.ai-state.warn {
+  border-color: rgba(245, 165, 36, 0.35);
+  background: rgba(245, 165, 36, 0.08);
+  color: var(--warn);
+}
+
+.ai-state .ico {
+  flex: none;
+  margin-top: 2px;
+}
+
+.ai-state span {
+  flex: 1;
+  min-width: 0;
+}
+
+.ai-state code {
+  font-family: var(--font-mono);
+  font-size: var(--t-11);
+  white-space: nowrap;
+}
+
+.ai-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 12px 10px;
+}
+
+.btn.ai-task {
+  height: auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 10px;
+  text-align: left;
+  white-space: normal;
+}
+
+.btn.ai-task .l {
+  font-size: var(--t-12);
+  color: var(--text);
+}
+
+.btn.ai-task .h {
+  font-size: var(--t-11);
+  color: var(--text-3);
+  line-height: 1.4;
+}
+
+.btn.ai-task:hover .l {
+  color: var(--text);
+}
+
+/* ---- job ---- */
+
+.ai-job {
+  margin: 0 12px 12px;
+  padding: 11px 12px 12px;
+  border: 1px solid var(--hairline-2);
+  border-radius: var(--r-card);
+  background: var(--raised);
+}
+
+.ai-job-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+}
+
+.ai-job-head .nm {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--t-12);
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ai-job-head .st {
+  font-size: 10px;
+  letter-spacing: var(--ls-caps);
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.ai-bar {
+  position: relative;
+  height: 4px;
+  margin-top: 10px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+
+.ai-bar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 99px;
+  background: var(--accent);
+  transition: width var(--med) var(--ease);
+}
+
+.ai-bar i.indet {
+  width: 34%;
+  animation: ai-slide 1.4s var(--ease) infinite;
+}
+
+@keyframes ai-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
+}
+
+.ai-pct {
+  margin-top: 5px;
+  font-family: var(--font-mono);
+  font-size: var(--t-11);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.ai-log {
+  margin: 10px 0 0;
+  max-height: 128px;
+  overflow: auto;
+  padding: 7px 8px;
+  border-radius: var(--r-ctl);
+  border: 1px solid var(--hairline);
+  background: var(--canvas);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--text-3);
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+}
+
+.ai-err {
+  margin-top: 9px;
+  padding: 8px 9px;
+  border-radius: var(--r-ctl);
+  border: 1px solid rgba(240, 85, 79, 0.35);
+  background: rgba(240, 85, 79, 0.08);
+  color: var(--danger);
+  font-size: var(--t-11);
+  line-height: 1.5;
+}
+
+.ai-done {
+  margin-top: 9px;
+  font-size: var(--t-11);
+  color: var(--ok);
+}

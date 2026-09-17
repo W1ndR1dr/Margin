@@ -3,8 +3,6 @@ import {
   ChevronRight,
   Circle,
   Copy,
-  Eye,
-  Layers,
   MoveDiagonal,
   Pipette,
   Ruler,
@@ -18,6 +16,10 @@ import { PANE_META, useAppStore, type PanelTab } from '../store/useAppStore';
 import { viewer } from '../viewer/ViewerCore';
 import { formatDicomDate, formatPersonName } from '../api/client';
 import { CarotidPanel } from '../tools/carotid';
+import { AirwayPanel } from '../tools/airway';
+import { AiPanel } from '../tools/ai';
+import { StructuresTab } from '../labels';
+import { useStructureStore } from '../labels/structureStore';
 import { APP_NAME } from '../config';
 
 const TABS: Array<{ id: PanelTab; label: string }> = [
@@ -126,46 +128,17 @@ function MeasurementsTab() {
   );
 }
 
-/* ---------------- structures (v0.2 placeholder) ---------------- */
-
-const PLANNED_STRUCTURES = [
-  { name: 'Primary tumour', color: 'var(--tumor)' },
-  { name: 'Level II node', color: 'var(--node)' },
-  { name: 'Carotid artery', color: 'var(--artery)' },
-  { name: 'Internal jugular', color: 'var(--vein)' },
-  { name: 'Airway', color: 'var(--airway)' },
-  { name: 'Mandible', color: 'var(--bone)' },
-];
-
-function StructuresTab() {
-  return (
-    <div className="side-body">
-      <div className="empty-note" style={{ paddingBottom: 14 }}>
-        <Layers size={20} className="ico" />
-        <strong>No segmentations yet</strong>
-        Threshold, region grow and brush segmentation with volumetrics and STL export arrive in v0.2. The
-        layer list below shows the structures {APP_NAME} will track.
-      </div>
-      {PLANNED_STRUCTURES.map((s) => (
-        <div className="struct-row" key={s.name}>
-          <span className="struct-sw" style={{ background: s.color, opacity: 0.55 }} />
-          <span className="nm">{s.name}</span>
-          <span className="vol">— ml</span>
-          <Eye size={14} strokeWidth={1.5} style={{ opacity: 0.4 }} />
-        </div>
-      ))}
-    </div>
-  );
-}
-
 /* ---------------- tools (guided panel shell) ---------------- */
 
 function ToolsTab() {
   return (
     <div className="side-body">
+      <div className="panel-title">Head &amp; neck tools</div>
       <CarotidPanel />
+      <AirwayPanel />
+      <AiPanel />
       <div className="empty-note">
-        Node level mapping, airway analysis and the mandible planner follow on the v0.3–v0.4 roadmap.
+        Node level mapping and the mandible planner follow on the v0.3–v0.4 roadmap.
       </div>
     </div>
   );
@@ -292,6 +265,7 @@ export function SidePanel() {
   const tab = useAppStore((s) => s.panelTab);
   const open = useAppStore((s) => s.panelOpen);
   const count = useAppStore((s) => s.measurements.length);
+  const structureCount = useStructureStore((s) => s.items.length);
   const set = useAppStore((s) => s.set);
 
   return (
@@ -301,6 +275,9 @@ export function SidePanel() {
           <button key={t.id} className={tab === t.id ? 'on' : ''} onClick={() => set({ panelTab: t.id })}>
             {t.label}
             {t.id === 'measurements' && count > 0 && <span className="tab-count">{count}</span>}
+            {t.id === 'structures' && structureCount > 0 && (
+              <span className="tab-count">{structureCount}</span>
+            )}
           </button>
         ))}
       </div>

@@ -174,3 +174,239 @@ export function formatPersonName(n: string | null | undefined): string {
   if (!n) return 'Unknown';
   return n.replace(/\^+$/, '').split('^').filter(Boolean).join(', ');
 }
+
+/* ------------------------------------------------------------------ */
+/* Analysis API v0.2 — segmentation, volumetrics, airway              */
+/* ------------------------------------------------------------------ */
+
+export type Triple = [number, number, number];
+
+export interface LabelStats {
+  label_id: string;
+  n_voxels: number;
+  volume_ml: number;
+  bbox_ijk: [number, number, number, number, number, number];
+  centroid_lps: Triple;
+  mean_hu: number;
+  std_hu: number;
+  longest_axis_mm: number;
+  diameters_mm: Triple;
+  took_ms: number;
+}
+
+export interface ThresholdRequest {
+  series_uid: string;
+  lower_hu: number;
+  upper_hu: number;
+  inside_body?: boolean;
+  keep_largest?: boolean;
+  min_component_ml?: number;
+}
+
+export interface RegionGrowRequest {
+  series_uid: string;
+  seed_ijk?: Triple;
+  seed_lps?: Triple;
+  lower_hu: number;
+  upper_hu: number;
+  max_radius_mm?: number | null;
+  closing_mm?: number;
+  keep_largest?: boolean;
+}
+
+export interface DistanceResult {
+  min_distance_mm: number;
+  point_a_lps: Triple;
+  point_b_lps: Triple;
+}
+
+export interface AirwayRequest {
+  series_uid: string;
+  seed_ijk?: Triple;
+  seed_lps?: Triple;
+  lower_hu?: number;
+  upper_hu?: number;
+  glottis_slice?: number | null;
+  reference?: 'auto' | 'manual';
+  ref_range_k?: [number, number] | null;
+  /** Drop every centreline sample superior to `glottis_slice` before grading. */
+  cap_at_glottis?: boolean;
+}
+
+export interface AirwayResult {
+  label_id: string;
+  centerline_lps: Triple[];
+  /** Slice index k of every sample (backends before this field omit it). */
+  sample_k?: number[];
+  arclength_mm: number[];
+  csa_mm2: number[];
+  eq_diameter_mm: number[];
+  min_diameter_mm: number[];
+  max_diameter_mm: number[];
+  csa_ref_mm2: number;
+  /** How the reference was obtained — the mode applied, the sorted bracket, a sentence. */
+  reference?: 'auto' | 'manual';
+  ref_range_k?: [number, number] | null;
+  ref_method?: string;
+  capped_at_glottis?: boolean;
+  min_csa_mm2: number;
+  min_csa_index: number;
+  min_csa_lps: Triple;
+  stenosis_pct: number;
+  stenosis_length_mm: number;
+  distance_from_glottis_mm: number | null;
+  myer_cotton_grade: 'I' | 'II' | 'III' | 'IV' | null;
+  took_ms: number;
+}
+
+/* ---- AI segmentation (routes added separately; may 404) ---- */
+
+export type AiModelId = 'totalseg' | 'hnlnl';
+
+export interface AiTaskInfo {
+  id: string;
+  name?: string;
+  available?: boolean;
+  reason?: string;
+}
+
+export interface AiModelInfo {
+  id: string;
+  name?: string;
+  available: boolean;
+  reason?: string;
+  tasks: AiTaskInfo[];
+}
+
+export interface AiSegmentRequest {
+  series_uid: string;
+  model: AiModelId;
+  tasks?: string[];
+  roi_subset?: string[];
+  fast?: boolean;
+}
+
+export interface AiStructure {
+  name: string;
+  label_id: string;
+  n_voxels: number;
+  volume_ml: number;
+  color: [number, number, number];
+}
+
+export interface AiJob {
+  status: 'queued' | 'running' | 'done' | 'error';
+  progress?: number;
+  log_tail?: string | string[];
+  structures?: AiStructure[];
+  error?: string;
+}
+
+/**
+ * `GET /api/ai/models` has no frozen shape in CONTRACT.md beyond "availability
+ * per model/task", so normalise whatever comes back into AiModelInfo[] rather
+ * than trusting one layout.
+ */
+/** One task row, whatever the backend calls its fields. */
+function taskOf(raw: unknown): AiTaskInfo {
+  const t = (raw ?? {}) as Record<string, unknown>;
+  const missing = Array.isArray(t.missing_weights) ? (t.missing_weights as unknown[]) : [];
+  const available = t.available !== false && t.weights_present !== false && missing.length === 0;
+  const reason =
+    (t.reason as string | undefined) ??
+    (missing.length ? `weights missing: ${missing.slice(0, 3).join(', ')}` : undefined);
+  return {
+    id: String(t.id ?? t.task ?? t.name ?? ''),
+    name: (t.title ?? t.label) as string | undefined,
+    available,
+    reason: available ? undefined : (reason ?? 'not installed'),
+  };
+}
+
+export function normaliseAiModels(raw: unknown): AiModelInfo[] {
+  const rows: unknown[] = Array.isArray(raw)
+    ? raw
+    : Array.isArray((raw as { models?: unknown })?.models)
+      ? ((raw as { models: unknown[] }).models)
+      : raw && typeof raw === 'object'
+        ? Object.entries(raw as Record<string, unknown>).map(([id, v]) =>
+            v && typeof v === 'object' ? { id, ...(v as object) } : { id, available: Boolean(v) },
+          )
+        : [];
+
+  return rows
+    .filter((r): r is Record<string, unknown> => !!r && typeof r === 'object')
+    .map((r) => {
+      const rawTasks = r.tasks;
+      const tasks: AiTaskInfo[] = Array.isArray(rawTasks)
+        ? rawTasks.map((t) => (typeof t === 'string' ? { id: t, available: true } : taskOf(t)))
+        : rawTasks && typeof rawTasks === 'object'
+          ? Object.entries(rawTasks as Record<string, unknown>).map(([id, v]) => ({
+              id,
+              available:
+                v && typeof v === 'object'
+                  ? (v as { available?: boolean }).available !== false
+                  : Boolean(v),
+              reason: v && typeof v === 'object' ? (v as { reason?: string }).reason : undefined,
+            }))
+          : [];
+      return {
+        id: String(r.id ?? r.model ?? r.name ?? ''),
+        name: (r.name ?? r.title ?? r.label) as string | undefined,
+        available: r.available !== false,
+        reason: r.reason as string | undefined,
+        tasks: tasks.filter((t) => t.id),
+      };
+    })
+    .filter((m) => m.id);
+}
+
+function post<T>(path: string, body: unknown, timeoutMs = 180_000): Promise<T> {
+  return req<T>(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    timeoutMs,
+  });
+}
+
+export const analysis = {
+  threshold: (body: ThresholdRequest) => post<LabelStats>('/api/analysis/threshold', body),
+
+  regionGrow: (body: RegionGrowRequest) => post<LabelStats>('/api/analysis/region-grow', body),
+
+  labelStats: (labelId: string) =>
+    req<LabelStats>(`/api/analysis/label/${encodeURIComponent(labelId)}/stats`),
+
+  deleteLabel: (labelId: string) =>
+    req<{ deleted: string; labels: number }>(
+      `/api/analysis/label/${encodeURIComponent(labelId)}`,
+      { method: 'DELETE' },
+    ),
+
+  distance: (labelA: string, labelB: string) =>
+    post<DistanceResult>('/api/analysis/distance', { label_a: labelA, label_b: labelB }),
+
+  airway: (body: AirwayRequest) => post<AirwayResult>('/api/analysis/airway', body, 300_000),
+
+  maskUrl: (labelId: string) => `/api/analysis/label/${encodeURIComponent(labelId)}/mask`,
+
+  meshUrl: (labelId: string, smoothIters = 10, step = 1) =>
+    `/api/analysis/label/${encodeURIComponent(labelId)}/mesh?smooth_iters=${smoothIters}&step=${step}`,
+
+  /** Binary STL of a label, for the 3D surface fallback and the export button. */
+  async mesh(labelId: string, smoothIters = 10, step = 1): Promise<ArrayBuffer> {
+    const res = await fetch(analysis.meshUrl(labelId, smoothIters, step));
+    if (!res.ok) throw new ApiError(await readErrorDetail(res), res.status);
+    return res.arrayBuffer();
+  },
+};
+
+export const ai = {
+  models: () => req<unknown>('/api/ai/models', { timeoutMs: 20_000 }).then(normaliseAiModels),
+
+  segment: (body: AiSegmentRequest) =>
+    post<{ job_id: string; status: string }>('/api/ai/segment', body, 30_000),
+
+  job: (jobId: string) => req<AiJob>(`/api/ai/jobs/${encodeURIComponent(jobId)}`, { timeoutMs: 20_000 }),
+};

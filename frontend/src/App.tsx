@@ -3,6 +3,7 @@ import { useAppStore } from './store/useAppStore';
 import { checkBackend, openSeriesFromUrl } from './library';
 import { RAIL_TOOLS, initCornerstone, viewer } from './viewer/ViewerCore';
 import { carotid } from './tools/carotid';
+import { airway } from './tools/airway';
 import { WINDOW_PRESETS } from './viewer/presets';
 import { TopBar } from './components/TopBar';
 import { ToolRail } from './components/ToolRail';
@@ -10,7 +11,14 @@ import { ViewportGrid } from './components/ViewportGrid';
 import { Library } from './components/Library';
 import { SidePanel } from './components/SidePanel';
 import { StatusBar } from './components/StatusBar';
-import { CommandPalette, ImportDialog, ShortcutsSheet, Toasts } from './components/Overlays';
+import {
+  CommandPalette,
+  ImportDialog,
+  ShortcutsSheet,
+  StructuresQuickMenu,
+  Toasts,
+} from './components/Overlays';
+import { disarmRegionGrow } from './labels';
 import { formatPersonName } from './api/client';
 import { APP_NAME } from './config';
 
@@ -105,16 +113,22 @@ export default function App() {
       }
 
       if (e.key === 'Escape') {
-        if (s.paletteOpen || s.shortcutsOpen || s.importOpen) {
-          set({ paletteOpen: false, shortcutsOpen: false, importOpen: false });
-        } else if (carotid.cancel()) {
+        if (s.paletteOpen || s.shortcutsOpen || s.importOpen || s.structuresMenuOpen) {
+          set({
+            paletteOpen: false,
+            shortcutsOpen: false,
+            importOpen: false,
+            structuresMenuOpen: false,
+          });
+        } else if (airway.cancel() || carotid.cancel()) {
           // a head-and-neck tool was running; it put the viewer back itself
         } else if (s.layout !== 'none') {
+          disarmRegionGrow();
           viewer.setActiveTool('WindowLevel');
         }
         return;
       }
-      if (s.paletteOpen || s.shortcutsOpen || s.importOpen) return;
+      if (s.paletteOpen || s.shortcutsOpen || s.importOpen || s.structuresMenuOpen) return;
 
       if (e.key === '?') {
         set({ shortcutsOpen: true });
@@ -146,6 +160,14 @@ export default function App() {
           // head & neck: carotid encasement (DESIGN.md rail group 3)
           e.preventDefault();
           carotid.start();
+          return;
+        case 'y':
+          e.preventDefault();
+          airway.start();
+          return;
+        case 'g':
+          e.preventDefault();
+          if (s.layout === 'mpr') set({ structuresMenuOpen: true });
           return;
         case 'f':
           e.preventDefault();
@@ -224,6 +246,7 @@ export default function App() {
       <Toasts />
       <ImportDialog />
       <CommandPalette />
+      <StructuresQuickMenu />
       <ShortcutsSheet />
     </div>
   );

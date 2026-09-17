@@ -134,8 +134,6 @@ export function CarotidPanel() {
 
   return (
     <>
-      <div className="panel-title">Head &amp; neck tools</div>
-
       <div className="ct-card">
         <div className="ct-head">
           <Waypoints size={16} strokeWidth={1.5} />

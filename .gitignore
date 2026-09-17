@@ -12,3 +12,10 @@ Thumbs.db
 # Dataset evidence renders are derivatives of CC BY-NC-ND data - never commit
 tools/datasets/thumb_*.png
 tools/datasets/__pycache__/
+
+# Validation overlays render HaN-Seg pixel data (CC BY-NC-ND 4.0, NoDerivatives)
+tools/validation/overlays/
+tools/validation/_tmp_*
+tools/validation/__pycache__/
+tools/*hanseg*.png
+tools/validation/overlays/

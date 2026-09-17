@@ -904,3 +904,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 }
 .err-banner svg { color: var(--danger); flex: none; margin-top: 1px; }
 .err-banner .msg { line-height: 1.55; user-select: text; }
+
+/* ===== structures quick menu (G) =================================== */
+.dialog.quick { width: 420px; max-width: calc(100vw - 32px); }
+.quick-list { padding: 6px; max-height: 50vh; overflow-y: auto; }

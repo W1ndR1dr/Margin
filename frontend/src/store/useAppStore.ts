@@ -94,6 +94,8 @@ interface AppState {
   paletteOpen: boolean;
   shortcutsOpen: boolean;
   importOpen: boolean;
+  /** The G quick menu: threshold presets and region grow, from anywhere. */
+  structuresMenuOpen: boolean;
 
   set: (patch: Partial<AppState>) => void;
   setPane: (id: PaneId, patch: Partial<PaneState>) => void;
@@ -145,6 +147,7 @@ export const useAppStore = create<AppState>((set) => ({
   paletteOpen: false,
   shortcutsOpen: false,
   importOpen: false,
+  structuresMenuOpen: false,
 
   set: (patch) => set(patch),
 

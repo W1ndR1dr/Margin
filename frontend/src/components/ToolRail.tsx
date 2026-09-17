@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useAppStore, type GridMode } from '../store/useAppStore';
 import { carotid, useCarotidStore } from '../tools/carotid';
+import { airway, useAirwayStore } from '../tools/airway';
 import { RAIL_TOOLS, viewer } from '../viewer/ViewerCore';
 import { VOLUME_PRESETS } from '../viewer/presets';
 import { Popover, PopItem, Tip } from './ui';
@@ -44,12 +45,10 @@ const TOOL_ICON: Record<string, LucideIcon> = {
   Probe: Pipette,
 };
 
-/** Head & neck tools; those still on the roadmap carry their version instead. */
+/** Head & neck tools still on the roadmap; they carry their version instead. */
 const HN_TOOLS: Array<{ id: string; label: string; key: string; icon: LucideIcon; when: string }> = [
   { id: 'node', label: 'Node level', key: 'N', icon: Circle, when: 'v0.3' },
-  { id: 'airway', label: 'Airway analyser', key: 'Y', icon: Wind, when: 'v0.3' },
   { id: 'mandible', label: 'Mandible planner', key: 'M', icon: Box, when: 'v0.4' },
-  { id: 'segment', label: 'Segment', key: 'G', icon: Brush, when: 'v0.2' },
 ];
 
 const GRIDS: Array<{ id: GridMode; label: string; icon: LucideIcon }> = [
@@ -66,6 +65,8 @@ export function ToolRail({ onScreenshot }: { onScreenshot: () => void }) {
   const panelTab = useAppStore((s) => s.panelTab);
   const cine = useAppStore((s) => s.cine);
   const carotidPhase = useCarotidStore((s) => s.phase);
+  const airwayPhase = useAirwayStore((s) => s.phase);
+  const structuresMenuOpen = useAppStore((s) => s.structuresMenuOpen);
   const set = useAppStore((s) => s.set);
 
   const idle = layout === 'none';
@@ -107,6 +108,26 @@ export function ToolRail({ onScreenshot }: { onScreenshot: () => void }) {
       >
         <Waypoints size={18} strokeWidth={1.5} />
         <Tip label="Carotid encasement" hotkey="C" />
+      </button>
+
+      <button
+        className={`rail-btn${airwayPhase !== 'idle' ? ' on' : ''}`}
+        disabled={layout !== 'mpr'}
+        onClick={() => airway.start()}
+        aria-label="Airway analyser"
+      >
+        <Wind size={18} strokeWidth={1.5} />
+        <Tip label="Airway analyser" hotkey="Y" />
+      </button>
+
+      <button
+        className={`rail-btn${structuresMenuOpen ? ' on' : ''}`}
+        disabled={layout !== 'mpr'}
+        onClick={() => set({ structuresMenuOpen: !structuresMenuOpen })}
+        aria-label="Segment"
+      >
+        <Brush size={18} strokeWidth={1.5} />
+        <Tip label="Segment · quick menu" hotkey="G" />
       </button>
 
       {HN_TOOLS.map((t) => (

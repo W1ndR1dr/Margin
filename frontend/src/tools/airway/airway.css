@@ -1,0 +1,175 @@
+/* Airway analyser — reuses the guided-tool chrome from carotid.css. */
+
+.aw-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding: 4px 8px;
+  border-radius: 99px;
+  border: 1px solid;
+  font-size: var(--t-11);
+  white-space: nowrap;
+}
+
+.aw-chip svg {
+  display: block;
+}
+
+.aw-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 12px 12px;
+}
+
+.aw-actions .btn {
+  flex: 1;
+  min-width: 96px;
+  height: var(--h-field);
+}
+
+.aw-running {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 0 12px 12px;
+  padding: 10px 11px;
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+  border-radius: var(--r-ctl);
+  color: var(--accent);
+  font-size: var(--t-12);
+  line-height: 1.5;
+}
+
+.aw-note {
+  margin-top: 9px;
+  font-size: var(--t-11);
+  color: var(--text-3);
+}
+
+/* ---- chart ---- */
+
+.aw-chart {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--hairline);
+}
+
+.aw-chart svg {
+  display: block;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.aw-tick {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  fill: var(--text-3);
+}
+
+.aw-tick.min {
+  fill: var(--danger);
+}
+
+.aw-axis-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2px;
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+.aw-readout {
+  margin-top: 7px;
+  padding: 6px 8px;
+  border-radius: var(--r-ctl);
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  font-family: var(--font-mono);
+  font-size: var(--t-11);
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow-x: auto;
+}
+
+.aw-chart-hint {
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+/* ---- optional inputs: glottis, reference bracket, cap ---- */
+
+.aw-inputs {
+  padding-bottom: 4px;
+}
+
+.aw-inputs .aw-actions {
+  padding-bottom: 6px;
+}
+
+.aw-inputs .aw-actions:last-child {
+  padding-bottom: 12px;
+}
+
+.aw-actions .btn.on {
+  color: var(--accent);
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+
+.aw-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 12px 10px;
+  font-size: var(--t-12);
+  color: var(--text-2);
+  cursor: pointer;
+  user-select: none;
+}
+
+.aw-check.off {
+  color: var(--text-3);
+  cursor: default;
+}
+
+.aw-check input {
+  margin: 0;
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+}
+
+/* ---- chart: the reference bracket and a stale result ---- */
+
+.aw-chart svg.dragging {
+  cursor: col-resize;
+}
+
+.aw-band {
+  fill: var(--text-3);
+  opacity: 0.14;
+}
+
+.aw-tick.band {
+  fill: var(--text-2);
+}
+
+.ct-result.aw-stale {
+  opacity: 0.55;
+}
+
+.aw-stale-note {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid rgba(245, 165, 36, 0.35);
+  background: rgba(245, 165, 36, 0.08);
+  border-radius: var(--r-ctl);
+  color: var(--warn);
+  font-size: var(--t-11);
+  line-height: 1.5;
+}

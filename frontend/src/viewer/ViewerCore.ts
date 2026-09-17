@@ -46,6 +46,7 @@ import {
 import { imageIdFor, type SeriesDetail } from '../api/client';
 import { useAppStore, type Measurement, type PaneId } from '../store/useAppStore';
 import { SLAB_OPTIONS, WINDOW_PRESETS } from './presets';
+import { planSliceJump } from './sliceNav';
 
 const { MouseBindings } = csToolsEnums;
 const { ViewportType, OrientationAxis, BlendModes } = Enums;
@@ -212,13 +213,6 @@ export function initCornerstone(): Promise<void> {
 /* helpers                                                            */
 /* ------------------------------------------------------------------ */
 
-function paneIdForViewport(viewportId: string): PaneId | null {
-  const found = (Object.keys(VIEWPORT_ID) as PaneId[]).find(
-    (k) => VIEWPORT_ID[k] === viewportId,
-  );
-  return found ?? null;
-}
-
 function fmt(n: number, digits = 1): string {
   if (!Number.isFinite(n)) return '—';
   return n.toFixed(digits);
@@ -303,12 +297,60 @@ class ViewerCore {
   private derived = new Map<string, Measurement>();
   /** View reference (annotation metadata) that makes a derived row jumpable. */
   private derivedRefs = new Map<string, unknown>();
+  /** Per-pane camera/VOI listeners, keyed by the element they were added to. */
+  private elementListeners = new Map<HTMLDivElement, () => void>();
+  /** Panes with a pane-state refresh already queued for the current task. */
+  private refreshQueued = new Set<PaneId>();
 
   /* ---------------- element registration ---------------- */
 
   registerElement(id: PaneId, el: HTMLDivElement | null): void {
-    if (el) this.elements.set(id, el);
-    else this.elements.delete(id);
+    const prev = this.elements.get(id);
+    if (prev && prev !== el) this.unlistenElement(prev);
+    if (el) {
+      this.elements.set(id, el);
+      this.listenElement(id, el);
+    } else {
+      this.elements.delete(id);
+    }
+  }
+
+  /**
+   * Cornerstone dispatches CAMERA_MODIFIED / VOI_MODIFIED on the viewport's
+   * DOM element (non-bubbling), not on the global eventTarget, so the overlay
+   * only tracks crosshair drags, wheel scrolls and W/L drags if we listen
+   * here. Without this the "n / total" badge went stale after a Crosshairs
+   * reset while annotations kept the true slice index.
+   */
+  private listenElement(id: PaneId, el: HTMLDivElement): void {
+    if (this.elementListeners.has(el)) return;
+    const handler = () => this.scheduleRefresh(id);
+    el.addEventListener(Enums.Events.CAMERA_MODIFIED, handler);
+    el.addEventListener(Enums.Events.VOI_MODIFIED, handler);
+    this.elementListeners.set(el, handler);
+  }
+
+  private unlistenElement(el: HTMLDivElement): void {
+    const handler = this.elementListeners.get(el);
+    if (!handler) return;
+    el.removeEventListener(Enums.Events.CAMERA_MODIFIED, handler);
+    el.removeEventListener(Enums.Events.VOI_MODIFIED, handler);
+    this.elementListeners.delete(el);
+  }
+
+  /**
+   * Coalesce the burst of camera events a single interaction produces (e.g.
+   * Crosshairs moving two viewports per mouse move) into one store update.
+   * A microtask, not requestAnimationFrame: frames stop in a hidden tab and a
+   * never-firing frame would block every later refresh for that pane.
+   */
+  private scheduleRefresh(pane: PaneId): void {
+    if (this.refreshQueued.has(pane)) return;
+    this.refreshQueued.add(pane);
+    queueMicrotask(() => {
+      this.refreshQueued.delete(pane);
+      this.refreshPaneState(pane);
+    });
   }
 
   /** The Cornerstone host element for a pane — the mount point for tool overlays. */
@@ -351,6 +393,166 @@ class ViewerCore {
       return this.engine.getViewport(VIEWPORT_ID[id]) ?? null;
     } catch {
       return null;
+    }
+  }
+
+  /* ---------------- geometry helpers for head & neck tools ---------------- */
+
+  /** The streaming CT volume currently on the MPR panes (null in stack mode). */
+  get ctVolumeId(): string | null {
+    return this.mode === 'mpr' ? this.volumeId : null;
+  }
+
+  /** The cached CT volume, for grid checks and world <-> index maths. */
+  getCtVolume(): Types.IImageVolume | null {
+    if (!this.volumeId || this.mode !== 'mpr') return null;
+    return (cache.getVolume(this.volumeId) as Types.IImageVolume | undefined) ?? null;
+  }
+
+  /** Frame of reference of the loaded volume — surfaces must declare one. */
+  getFrameOfReferenceUID(): string {
+    const v = this.getCtVolume() as
+      | (Types.IImageVolume & { metadata?: { FrameOfReferenceUID?: string } })
+      | null;
+    return v?.metadata?.FrameOfReferenceUID ?? 'hnrad-unknown-for';
+  }
+
+  /** The MPR pane ids that are live for this series. */
+  get mprPanes(): PaneId[] {
+    return this.mode === 'mpr' ? [...MPR_PANES] : [];
+  }
+
+  /** Voxel index under a world (LPS mm) point, or null when it is outside. */
+  worldToIjk(world: Types.Point3): [number, number, number] | null {
+    const vol = this.getCtVolume();
+    if (!vol?.imageData || !vol.dimensions) return null;
+    try {
+      const idx = csUtils.transformWorldToIndex(vol.imageData, world) as number[];
+      const ijk: [number, number, number] = [
+        Math.round(idx[0]),
+        Math.round(idx[1]),
+        Math.round(idx[2] ?? 0),
+      ];
+      const [di, dj, dk] = vol.dimensions;
+      if (ijk[0] < 0 || ijk[1] < 0 || ijk[2] < 0 || ijk[0] >= di || ijk[1] >= dj || ijk[2] >= dk) {
+        return null;
+      }
+      return ijk;
+    } catch {
+      return null;
+    }
+  }
+
+  /** HU at a voxel index of the loaded CT volume. */
+  huAtIjk(ijk: [number, number, number]): number | null {
+    const vol = this.getCtVolume();
+    const vm = vol?.voxelManager as
+      | { getAtIJK?: (i: number, j: number, k: number) => number }
+      | undefined;
+    if (!vm?.getAtIJK) return null;
+    try {
+      const v = vm.getAtIJK(ijk[0], ijk[1], ijk[2]);
+      return typeof v === 'number' && Number.isFinite(v) ? v : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Bring a world point into view on every MPR pane.
+   *
+   * Deliberately a view-reference / camera focal point move rather than a slice
+   * index: `setViewReference` is what the carotid tool already relies on, which
+   * keeps this independent of the slice scrubber's own navigation path.
+   */
+  jumpToWorld(world: Types.Point3): void {
+    if (this.mode !== 'mpr') return;
+    MPR_PANES.forEach((pane) => {
+      const vp = this.getViewport(pane) as
+        | (Types.IViewport & {
+            setViewReference?: (r: unknown) => void;
+            getViewReference?: () => Record<string, unknown>;
+            getCamera?: () => { focalPoint?: Types.Point3; position?: Types.Point3 };
+            setCamera?: (c: unknown) => void;
+            render?: () => void;
+          })
+        | null;
+      if (!vp) return;
+      try {
+        // Only FrameOfReferenceUID + cameraFocalPoint. Spreading the whole
+        // reference would carry its `sliceIndex`, and BaseVolumeViewport takes
+        // the slice-index branch first — a delta of zero, i.e. no movement.
+        const forUid = (
+          vp as unknown as { getFrameOfReferenceUID?: () => string }
+        ).getFrameOfReferenceUID?.();
+        if (forUid && vp.setViewReference) {
+          vp.setViewReference({
+            FrameOfReferenceUID: forUid,
+            cameraFocalPoint: [world[0], world[1], world[2]],
+          });
+        } else {
+          const cam = vp.getCamera?.();
+          const focal = cam?.focalPoint;
+          const pos = cam?.position;
+          if (focal && pos) {
+            const shift = [world[0] - focal[0], world[1] - focal[1], world[2] - focal[2]];
+            vp.setCamera?.({
+              focalPoint: [world[0], world[1], world[2]] as Types.Point3,
+              position: [pos[0] + shift[0], pos[1] + shift[1], pos[2] + shift[2]] as Types.Point3,
+            });
+          }
+        }
+        vp.render?.();
+        this.refreshPaneState(pane);
+      } catch (e) {
+        console.warn('[hnrad] could not jump to world point', e);
+      }
+    });
+  }
+
+  /**
+   * Park a vtk actor in the 3D viewport (structure surfaces). Actors are keyed
+   * by uid so a structure can replace or remove its own without disturbing the
+   * volume actor.
+   */
+  addActorTo3d(uid: string, actor: unknown): boolean {
+    const vp = this.getViewport('volume3d') as
+      | (Types.IViewport & {
+          addActor?: (e: { uid: string; actor: unknown }) => void;
+          getActor?: (uid: string) => unknown;
+          removeActors?: (uids: string[]) => void;
+          render?: () => void;
+        })
+      | null;
+    if (!vp?.addActor) return false;
+    try {
+      if (vp.getActor?.(uid)) vp.removeActors?.([uid]);
+      vp.addActor({ uid, actor });
+      vp.render?.();
+      return true;
+    } catch (e) {
+      console.warn('[hnrad] could not add a 3D actor', e);
+      return false;
+    }
+  }
+
+  removeActorFrom3d(uid: string): void {
+    const vp = this.getViewport('volume3d') as
+      | (Types.IViewport & { removeActors?: (uids: string[]) => void; render?: () => void })
+      | null;
+    try {
+      vp?.removeActors?.([uid]);
+      vp?.render?.();
+    } catch {
+      /* the actor was never added, or the engine is gone */
+    }
+  }
+
+  render3d(): void {
+    try {
+      this.engine?.renderViewports([VIEWPORT_ID.volume3d]);
+    } catch {
+      /* engine mid-teardown */
     }
   }
 
@@ -709,18 +911,7 @@ class ViewerCore {
       csToolsEnums.Events.ANNOTATION_MODIFIED,
       csToolsEnums.Events.ANNOTATION_REMOVED,
     ].forEach((e) => eventTarget.addEventListener(e, refresh));
-
-    eventTarget.addEventListener(Enums.Events.CAMERA_MODIFIED, (evt: Event) => {
-      const id = ((evt as CustomEvent).detail as { viewportId?: string })?.viewportId;
-      const pane = id ? paneIdForViewport(id) : null;
-      if (pane) this.refreshPaneState(pane);
-    });
-
-    eventTarget.addEventListener(Enums.Events.VOI_MODIFIED, (evt: Event) => {
-      const id = ((evt as CustomEvent).detail as { viewportId?: string })?.viewportId;
-      const pane = id ? paneIdForViewport(id) : null;
-      if (pane) this.refreshPaneState(pane);
-    });
+    // Camera and VOI changes are element events; see listenElement().
   }
 
   private refreshAllPaneState(): void {
@@ -760,20 +951,31 @@ class ViewerCore {
     }
   }
 
-  /** Jump a pane straight to a slice index (used by the scrubber). */
+  /**
+   * Jump a pane straight to a slice index (scrubber, cine wrap-around and
+   * measurement rows without a stored view reference).
+   *
+   * Implemented as a relative scroll from the current index. A bare
+   * `setViewReference({ sliceIndex })` is a no-op on 5.10 volume viewports;
+   * see sliceNav.ts for the details.
+   */
   setSlice(pane: PaneId, index: number): void {
     const vp = this.getViewport(pane) as
-      | (Types.IViewport & { setViewReference?: (r: unknown) => void })
+      | (Types.IViewport & { getSliceIndex?: () => number; getNumberOfSlices?: () => number })
       | null;
-    if (!vp?.setViewReference) return;
-    const total = useAppStore.getState().panes[pane].total;
-    const clamped = Math.max(0, Math.min(index, Math.max(total - 1, 0)));
+    if (!vp?.getSliceIndex || !vp.getNumberOfSlices) return;
+    let plan: ReturnType<typeof planSliceJump> = null;
     try {
-      vp.setViewReference({ sliceIndex: clamped });
-      vp.render();
+      plan = planSliceJump(vp.getSliceIndex(), vp.getNumberOfSlices(), index);
+    } catch {
+      return; /* no volume on the viewport yet */
+    }
+    if (!plan) return;
+    try {
+      csUtils.scroll(vp, { delta: plan.delta });
       this.refreshPaneState(pane);
     } catch {
-      /* out of range */
+      /* 3D viewports do not scroll */
     }
   }
 
@@ -1063,17 +1265,8 @@ class ViewerCore {
       const state = useAppStore.getState();
       const p = state.panes[pane];
       if (p.total > 0 && p.slice >= p.total - 1) {
-        const vp = this.getViewport(pane) as
-          | (Types.IViewport & { setViewReference?: (r: unknown) => void })
-          | null;
-        try {
-          vp?.setViewReference?.({ sliceIndex: 0 });
-          vp?.render();
-          this.refreshPaneState(pane);
-          return;
-        } catch {
-          /* fall through to a normal scroll */
-        }
+        this.setSlice(pane, 0);
+        return;
       }
       this.scrollPane(pane, 1);
     }, 60);

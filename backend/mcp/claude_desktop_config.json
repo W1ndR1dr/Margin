@@ -1,0 +1,15 @@
+{
+  "//": "Claude Desktop MCP config. Merge the contents of mcpServers into %APPDATA%\\Claude\\claude_desktop_config.json, then restart Claude Desktop. The Margin backend must already be running (backend\\run.ps1). Adjust the paths if the repo does not live in C:\\Users\\o948145\\hnrad.",
+  "mcpServers": {
+    "margin": {
+      "command": "C:\\Users\\o948145\\hnrad\\backend\\.venv\\Scripts\\python.exe",
+      "args": ["-m", "hnrad.mcp_server"],
+      "cwd": "C:\\Users\\o948145\\hnrad\\backend",
+      "env": {
+        "MARGIN_API": "http://127.0.0.1:8765",
+        "MARGIN_MCP_LOG": "INFO",
+        "PYTHONUNBUFFERED": "1"
+      }
+    }
+  }
+}

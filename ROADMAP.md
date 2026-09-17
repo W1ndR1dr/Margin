@@ -51,10 +51,10 @@ STL export for printing.
 8. [ ] Airway analyzer (centerline, min CSA, stenosis %, fly-through)         — v0.3
 9. [ ] Mandible planner (canal, osteotomies, defect length, fibula segments)  — v0.4
 10. [ ] Vascular safety flags (retropharyngeal ICA, aberrant subclavian)      — v0.4
-11. [x] Compare mode (rigid registration prior vs current, delta volume)      — v0.5
-12. [x] PET/CT fusion, SUV, MTV                                               — v0.5
-13. [x] AI organ segmentation (TotalSegmentator, CPU)                         — v0.6
-14. [x] Reporting / tumor board export / de-identified sharing                — v0.6
+11. [ ] Compare mode (rigid registration prior vs current, delta volume)      — v0.5
+12. [ ] PET/CT fusion, SUV, MTV                                               — v0.5
+13. [ ] AI organ segmentation (TotalSegmentator, CPU)                         — v0.6
+14. [ ] Reporting / tumor board export / de-identified sharing                — v0.6
 
 ## Stack decision (2026-09-17)
 

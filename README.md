@@ -1,4 +1,4 @@
-# HNRad
+# Margin (code name HNRad)
 
 Local-only radiology assistant for head and neck cancer surgery. Imports DICOM from
 PACS exports, CDs or folders, keeps everything on this machine, and gives you a fast

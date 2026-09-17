@@ -1,29 +1,28 @@
 # Design system and product plan
 
-Working code name: **HNRad**. Product name candidates below; the UI reads the
-name from one constant (`APP_NAME`) so renaming is a one-line change.
+Product name: **Margin** (chosen 2026-09-17). Repo/package code name stays `hnrad`.
+The UI reads the name from one constant (`APP_NAME = "Margin"`).
 
 ## Name
 
-| Candidate | Why it fits | Watch out |
-|---|---|---|
-| **Hyoid** (recommended) | The one bone unique to the neck, free-floating, touches nothing else. One word, ownable, easy to say, and its U shape is a ready-made mark. | Non-clinicians won't know it; that's fine, this is a surgeon's tool. |
-| Atlas | C1 holds up the head; also "a book of maps". Double meaning is perfect for a neck imaging atlas. | Crowded name (MongoDB Atlas, Atlas.ti, etc.). |
-| Cricoid | The only complete ring in the airway. Ring mark with a crosshair is a strong icon. | Sounds clinical rather than product-like. |
-| Sagitta | Latin for arrow, root of "sagittal". Elegant. | Not head-and-neck specific. |
+**Margin.** The surgical margin is the whole point of the tool: knowing where
+tumor ends and where you can safely cut. Short, plain English, works as a verb
+in the clinic ("pull it up in Margin"). Earlier candidates (Hyoid, Atlas,
+Cricoid, Sagitta) are retired.
 
-Tagline options: "See the neck clearly." / "The head and neck workstation." /
+Tagline options: "Know where to cut." / "See the neck clearly." /
 "Surgical radiology, on your desk."
 
 ## Mark and icon
 
-Primary mark: the hyoid body and greater horns drawn as one continuous stroke,
-a wide shallow U with the horn tips flaring slightly outward, drawn with
-rounded caps at 2 units stroke on a 24 unit grid. A single horizontal hairline
-crosses the U at its midpoint: the axial slice. Teal stroke on a near-black
-rounded-square tile (radius 22 percent). Monochrome variants: white on black
-for the title bar, black on white for print. It must survive at 16 px, so no
-inner detail beyond the slice line.
+Primary mark: a tumor and its margin. A soft, slightly irregular rounded blob
+(filled, teal) with a second contour offset outward by a constant distance
+(stroked, teal, 2 units on a 24 unit grid, rounded joins). The gap between
+the two is the margin. Optional: a single short tick crossing the gap at the
+lower right, the measured distance. Teal on a near-black rounded-square tile
+(radius 22 percent). Monochrome variants: white on black for the title bar,
+black on white for print. It must survive at 16 px: at small sizes drop the
+tick and keep only blob plus outline.
 
 Files to produce: `frontend/public/icon.svg` (master), `icon-512.png`,
 `icon-192.png`, `favicon.ico` (16/32), `icon-mono.svg`.
@@ -73,7 +72,7 @@ Icons: lucide (outline, 1.5 px stroke, 18 px in the rail, 16 px in lists).
 
 ```
 ┌ top bar 44px ───────────────────────────────────────────────────────────┐
-│ [mark] Hyoid   │ PHANTOM, NECK  ·  PHANTOM001  ·  56 M  ·  CT neck w/ contrast  ·  2026-09-17 │ Library  View  Plan  Compare  Report │ ⌘K │
+│ [mark] Margin   │ PHANTOM, NECK  ·  PHANTOM001  ·  56 M  ·  CT neck w/ contrast  ·  2026-09-17 │ Library  View  Plan  Compare  Report │ ⌘K │
 ├ rail 48px ┬ viewports ─────────────────────────────────────┬ panel 320px ┤
 │ navigate   │  ┌──────────────┬──────────────┐               │ Measurements │
 │ WL pan     │  │ axial        │ sagittal     │               │ Structures   │

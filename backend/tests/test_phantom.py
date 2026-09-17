@@ -36,9 +36,11 @@ def test_validation_passes(series):
     out, _ = series
     v = phantom.validate(out, N)
     assert v["size"] == (512, 512, N)
-    assert v["spacing"][0] == pytest.approx(0.7, abs=1e-4)
-    assert v["spacing"][1] == pytest.approx(0.7, abs=1e-4)
+    assert v["spacing"][0] == pytest.approx(0.45, abs=1e-4)
+    assert v["spacing"][1] == pytest.approx(0.45, abs=1e-4)
     assert v["spacing"][2] == pytest.approx(1.0, abs=1e-4)
+    # 512 x 0.45 mm = 230.4 mm, a realistic neck field of view
+    assert 512 * v["spacing"][0] == pytest.approx(230.4, abs=1e-3)
     assert v["hu_range"][0] <= -900          # air
     assert v["hu_range"][1] >= 900           # cortical bone
 
@@ -74,7 +76,7 @@ def test_tags_and_geometry(series):
 
     # geometry: head-first supine, z increasing superiorly
     assert [float(v) for v in ds0.ImageOrientationPatient] == [1, 0, 0, 0, 1, 0]
-    assert [float(v) for v in ds0.PixelSpacing] == [0.7, 0.7]
+    assert [float(v) for v in ds0.PixelSpacing] == [0.45, 0.45]
     assert float(ds0.SliceThickness) == 1.0
     assert float(ds0.SpacingBetweenSlices) == 1.0
     assert ds0.InstanceNumber == 1 and ds1.InstanceNumber == N
@@ -116,8 +118,8 @@ def test_anatomy_present_and_tumor_abuts_carotid(series):
     assert mask is not None and mask.sum() > 200
 
     def hu(x_mm, y_mm, r=2):
-        j = int(round(x_mm / 0.7 + 255.5))
-        i = int(round(y_mm / 0.7 + 255.5))
+        j = int(round(x_mm / phantom.PS + 255.5))
+        i = int(round(y_mm / phantom.PS + 255.5))
         return float(np.median(img[i - r:i + r + 1, j - r:j + r + 1]))
 
     assert hu(0, -150) < -900                       # air outside the patient
@@ -129,9 +131,10 @@ def test_anatomy_present_and_tumor_abuts_carotid(series):
     def lumen_width(z):
         a, _, _ = phantom.airway_params(z)
         im, _ = phantom.build_slice(z, np.random.default_rng(5))
-        row = im[int(round(a / 0.7 + 255.5)), 200:312]
+        half = int(round(40.0 / phantom.PS))          # +/- 40 mm about midline
+        row = im[int(round(a / phantom.PS + 255.5)), 256 - half:256 + half]
         air = np.where(row < -500)[0]
-        return (air.max() - air.min() + 1) * 0.7 if len(air) else 0.0
+        return (air.max() - air.min() + 1) * phantom.PS if len(air) else 0.0
 
     trachea = lumen_width(20.0)
     stenosis = lumen_width(60.0)

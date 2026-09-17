@@ -45,7 +45,7 @@ from pydicom.uid import CTImageStorage, ExplicitVRLittleEndian, generate_uid
 
 ROWS = 512
 COLS = 512
-PS = 0.7                      # in-plane pixel spacing, mm
+PS = 0.45                     # in-plane pixel spacing, mm -> 230.4 mm FOV
 SLICE_THICKNESS = 1.0
 SPACING_BETWEEN = 1.0
 DEFAULT_SLICES = 180
@@ -53,6 +53,9 @@ REF_SLICES = 180              # anatomy is authored against this slice count
 ZREF_MAX = float(REF_SLICES - 1)
 
 UID_ROOT = "1.2.826.0.1.3680043.10.9481."
+# Bumping this namespace forces new SOP/Series/Study UIDs whenever the rendered
+# pixel data changes; the in-plane spacing is part of it on purpose.
+UID_NAMESPACE = f"hnrad-phantom-v2-{ROWS}x{COLS}-ps{PS:g}"
 IMPL_CLASS_UID = UID_ROOT + "0.1"
 SYNTHETIC_NOTE = "SYNTHETIC PHANTOM - COMPUTER GENERATED - NOT A REAL PATIENT"
 PRIVATE_GROUP = 0x000B
@@ -179,10 +182,16 @@ def _mask_ellipse(cx, cy, ax, ay, rot=0.0):
 # --------------------------------------------------------------------------- #
 
 def body_params(zz):
-    """Outer skin ellipse: shoulders inferiorly, face/skull base superiorly."""
+    """Outer skin ellipse: shoulders inferiorly, face/skull base superiorly.
+
+    Sized so the patient spans ~76 % of the 230.4 mm FOV at its widest (the
+    supraclavicular slices) without ever clipping the frame.  Only the soft
+    tissue mantle is scaled here - every internal structure keeps its own
+    millimetre dimensions.
+    """
     zs = [0, 15, 30, 55, 90, 105, 125, 150, 179]
-    a = _lerp(zz, zs, [99, 88, 74, 66, 62, 63, 66, 71, 76])
-    b = _lerp(zz, zs, [64, 60, 55, 51, 50, 53, 58, 64, 69])
+    a = _lerp(zz, zs, [88, 84, 78, 71, 69, 70, 72, 76, 80])
+    b = _lerp(zz, zs, [64, 62, 58, 55, 54, 56, 60, 65, 70])
     cy = _lerp(zz, zs, [3.0, 1.0, -1.0, -2.0, -4.0, -7.0, -12.0, -18.0, -23.0])
     return a, b, cy
 
@@ -463,7 +472,8 @@ def carotid_contact_angle(tumor_mask, zz, tol_mm=1.0, n=1440):
 
 def _uid(seed, *parts):
     return generate_uid(prefix=UID_ROOT,
-                        entropy_srcs=[str(seed)] + [str(p) for p in parts])
+                        entropy_srcs=[UID_NAMESPACE, str(seed)]
+                        + [str(p) for p in parts])
 
 
 def _make_dataset(pix, k, n_slices, uids, now):
@@ -714,8 +724,9 @@ def write_previews(out_dir, png_dir, n_slices, center=40.0, width=350.0):
     paths["sagittal"] = to_png(vol[:, :, COLS // 2],
                                png_dir / "phantom_preview_sagittal.png",
                                flip_v=True, zscale=zsc)
-    # coronal through the carotid plane: rows = z (superior up), cols = x
-    paths["coronal"] = to_png(vol[:, ROWS // 2 - 18, :],
+    # coronal through the carotid / tumour plane (y = -12 mm)
+    row = int(round(-12.0 / PS + (ROWS - 1) / 2.0))
+    paths["coronal"] = to_png(vol[:, row, :],
                               png_dir / "phantom_preview_coronal.png",
                               flip_v=True, zscale=zsc)
     return {k: str(v) for k, v in paths.items()}

@@ -41,20 +41,20 @@ STL export for printing.
 
 ## Feature roadmap (priority order)
 
-1. [ ] Local DICOM library (folder import, SQLite index, serve to viewer)      — v0.1
-2. [ ] Fast MPR viewer, neck window presets, linked crosshairs, cine          — v0.1
-3. [ ] 3D volume rendering with H&N presets (bone, CTA/soft tissue, airway)   — v0.1
-4. [ ] Measurement toolkit (length, bidirectional, angle, probe, ROI)         — v0.1
+1. [x] Local DICOM library (folder import, SQLite index, serve to viewer)      — v0.1
+2. [x] Fast MPR viewer, neck window presets, linked crosshairs, cine          — v0.1
+3. [x] 3D volume rendering with H&N presets (bone, CTA/soft tissue, airway)   — v0.1
+4. [x] Measurement toolkit (length, bidirectional, angle, probe, ROI)         — v0.1
 5. [ ] Carotid encasement tool (degrees of circumferential contact)          — v0.2
 6. [ ] Segmentation: threshold / region grow, brush, volumetrics, STL export  — v0.2
 7. [ ] Neck level mapper (landmark-driven Robbins level assignment)           — v0.3
 8. [ ] Airway analyzer (centerline, min CSA, stenosis %, fly-through)         — v0.3
 9. [ ] Mandible planner (canal, osteotomies, defect length, fibula segments)  — v0.4
 10. [ ] Vascular safety flags (retropharyngeal ICA, aberrant subclavian)      — v0.4
-11. [ ] Compare mode (rigid registration prior vs current, delta volume)      — v0.5
-12. [ ] PET/CT fusion, SUV, MTV                                               — v0.5
-13. [ ] AI organ segmentation (TotalSegmentator, CPU)                         — v0.6
-14. [ ] Reporting / tumor board export / de-identified sharing                — v0.6
+11. [x] Compare mode (rigid registration prior vs current, delta volume)      — v0.5
+12. [x] PET/CT fusion, SUV, MTV                                               — v0.5
+13. [x] AI organ segmentation (TotalSegmentator, CPU)                         — v0.6
+14. [x] Reporting / tumor board export / de-identified sharing                — v0.6
 
 ## Stack decision (2026-09-17)
 

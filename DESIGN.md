@@ -92,7 +92,7 @@ Icons: lucide (outline, 1.5 px stroke, 18 px in the rail, 16 px in lists).
 Left rail groups, top to bottom, each icon with tooltip "Name · hotkey":
 1. Navigate: Window/Level (W), Pan (P), Zoom (Z), Scroll (S), Crosshairs (X)
 2. Measure: Length (L), Bidirectional (B), Angle (A), Ellipse ROI (E),
-   Freehand ROI (F), Probe (H)
+   Rectangle ROI (T), Freehand ROI (D), Probe (H); Q cycles window presets
 3. Head and neck tools: Carotid encasement (C), Node level (N), Airway (Y),
    Mandible (M), Segment (G)
 4. Layout: 1×1, 1×2, 2×2, 3+1; 3D presets popover; Reset (R); Snapshot (K)

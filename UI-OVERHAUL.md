@@ -12,14 +12,15 @@ elements." Everything below is binding for the overhaul.
   Tabs, Chip, Pill, Tile, Drawer, Palette, Toast, Tooltip, Scrubber. One
   component each, in `src/ui/`, styled from tokens, keyboard-accessible, with
   a visible custom focus ring (2 px accent, 2 px offset).
-- No lucide (or any stock icon set) in the product UI. A bespoke icon family
-  in `src/ui/icons.tsx`: 20 px grid, 1.5 px stroke, round caps, one visual
-  weight. Required marks: window/level, crosshairs, pan, zoom, scroll, length,
-  bidirectional, angle, ellipse, freehand, probe, carotid (ring with an amber
-  arc), airway (narrowing tube), node (three circles), mandible (horseshoe),
-  segment (blob + outline), layout 1/2/4, snapshot, cine, reset, library,
-  read, plan, compare, board, ask (four-point spark), local-only (shield dot),
-  import (arrow into tray), structures (stacked layers).
+- Icons: do NOT hand-draw SVG paths (Brian: "those will be low quality").
+  Use two professionally drawn open sets, bundled offline via Iconify
+  (`@iconify/react` + `@iconify-json/ph` + `@iconify-json/healthicons`; no
+  CDN at runtime): **Phosphor** (MIT; use the `regular` weight in the rail
+  and panels, `fill` for the active state, `duotone` sparingly for tiles) as
+  the system set, and **Health Icons** (CC0) for clinical marks (neck, lymph
+  nodes, airway/lungs, blood vessel, jaw/teeth, PET, radiology). One size
+  per context (20 px rail, 16 px lists). If no icon fits a tool, use a short
+  text label, never a homemade glyph. Remove lucide-react.
 - No emoji, no gradients washes, no drop shadows except popovers/drawer,
   no rounded-pill buttons everywhere, no card-on-card nesting.
 

@@ -71,3 +71,27 @@ VTK.js/Cornerstone3D) and C++-backed Python numerics (SimpleITK, numpy,
 scikit-image). Rust/C++/Tauri need the MSVC linker, which requires admin to
 install. React + TypeScript for the interface (same as OHIF), Cornerstone3D for
 the viewports, FastAPI + pydicom for the local library.
+
+## AI-native UX target (Brian, 2026-09-17: "AI native and modern, not old school")
+
+The viewer must know the anatomy before the surgeon asks. Build toward this, not
+toward more traditional viewer chrome:
+
+- Segmentation runs automatically on import, in the background; structures are
+  present when a study is opened (TotalSegmentator H&N tasks + nodal levels).
+- The cursor knows where it is: status bar shows the structure under the cursor
+  ("Right internal carotid", "Level IIa"); measurements are auto-labelled by the
+  structures they touch.
+- "Ask Margin": conversational panel (Agent SDK + Margin MCP tools). Natural
+  language runs tools and draws results on the image with numbers.
+- Findings card on open: airway narrowest point, carotid contact per side,
+  node counts by level, retropharyngeal carotid (<5 mm to pharynx), aberrant
+  subclavian flag. Each item jumps to its slice; each number is drawn on the image.
+- Snap-to-anatomy tools: tumour-to-carotid distance is one click on the tumour;
+  node short axis snaps to the node boundary.
+- Click-to-contour tumour / node (nnInteractive, SAM) with editable result and
+  volume against prognostic thresholds.
+- Compare mode reads the prior: register, then "what changed" as a list with
+  volume deltas and new/resolved nodes.
+- Library import: native folder picker (index in place) and drag-and-drop
+  (stream to local backend, copy into store) with progress. (queued)

@@ -48,7 +48,9 @@ STL export for printing.
 5. [ ] Carotid encasement tool (degrees of circumferential contact)          — v0.2
 6. [ ] Segmentation: threshold / region grow, brush, volumetrics, STL export  — v0.2
 7. [ ] Neck level mapper (landmark-driven Robbins level assignment)           — v0.3
-8. [ ] Airway analyzer (centerline, min CSA, stenosis %, fly-through)         — v0.3
+8. [~] Airway patency for anaesthesia planning (min lumen at tumour level,
+        distance from incisors/glottis, difficult-airway flag). Myer–Cotton
+        grading removed from the UI (Brian: "parlor trick", 2026-09-17)      — v0.3
 9. [ ] Mandible planner (canal, osteotomies, defect length, fibula segments)  — v0.4
 10. [ ] Vascular safety flags (retropharyngeal ICA, aberrant subclavian)      — v0.4
 11. [ ] Compare mode (rigid registration prior vs current, delta volume)      — v0.5
@@ -95,3 +97,15 @@ toward more traditional viewer chrome:
   volume deltas and new/resolved nodes.
 - Library import: native folder picker (index in place) and drag-and-drop
   (stream to local backend, copy into store) with progress. (queued)
+
+## Priority order (Brian, 2026-09-17)
+
+1. Tumour and node: click-to-contour, volume vs prognostic thresholds, node
+   short axis / necrosis / level, carotid contact sweep across all slices.
+2. Bone and skull base: mandible cortical vs medullary invasion flag, tumour
+   to inferior alveolar canal distance, thyroid cartilage inner vs outer cortex.
+3. Vascular safety: retropharyngeal ICA distance (TORS), aberrant subclavian
+   (thyroid), IJV patency and recipient vessels (free flap).
+4. Compare (registered prior vs current, volume deltas) and PET (SUV, MTV).
+5. Report and tumour board export.
+Airway stenosis grading is out of scope; airway patency stays as a findings-card flag.

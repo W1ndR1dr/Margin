@@ -109,3 +109,18 @@ toward more traditional viewer chrome:
 4. Compare (registered prior vs current, volume deltas) and PET (SUV, MTV).
 5. Report and tumour board export.
 Airway stenosis grading is out of scope; airway patency stays as a findings-card flag.
+
+## Perineural spread screening (added 2026-09-17)
+
+Macroscopic perineural tumour spread only (microscopic PNI is not an imaging
+finding). Findings-card flag built from geometry, after registration lands:
+- Register a foramina-labelled skull template to the patient's skull mask to
+  localise foramen ovale / rotundum, stylomastoid foramen, greater palatine
+  canal, pterygopalatine fossa.
+- Per-foramen cross-sectional area and side-to-side asymmetry; fat-pad mean HU
+  asymmetry (pterygopalatine fossa, foramen ovale, stylomastoid); masticator
+  muscle volume and fat-fraction asymmetry from the headneck_muscles masks;
+  mandibular canal widening near the tumour.
+- MR (T1 post-contrast) nerve enlargement/enhancement when an MR series exists.
+Output: "possible Vn perineural spread, recommend MRI" with each number drawn
+on the image. Never a diagnosis.

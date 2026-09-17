@@ -152,3 +152,33 @@ Everything reachable by keyboard; hotkeys single-key without modifiers so a
 gloved or one-handed user can drive it. Minimum 11 px text. Contrast ratio
 4.5:1 for all text on panels. Colorblind-safe severity chips also carry a
 label and a shape (dot, half, full ring).
+
+## v2 concept: AI-native shell (2026-09-17)
+
+Concept canvas: https://claude.ai/artifact/C2cx4phKhHwvfA2aqBj7WS (three artboards:
+Read, Ask Margin, Library). Changes from v1 that the next build should adopt:
+
+1. **Primary view + context strip, not a 2x2.** One large working viewport
+   (the plane you are reading) with sagittal, coronal and 3D stacked in a
+   236 px strip. The 3D view shows structures, not a volume render, by default.
+   Layout still switches to 2x2 / 1x1 on demand.
+2. **Findings tab is first, and filled on open.** Every AI-derived item is one
+   row: severity dot, statement with the number in mono, one line of evidence,
+   slice link. Green rows say what was checked and found normal (retropharyngeal
+   carotid, aberrant subclavian) so absence is explicit.
+3. **Anatomy under the cursor.** A chip in the viewport corner and the status
+   bar name the structure under the pointer with its HU. Measurements are
+   labelled by the structures they touch.
+4. **Ask Margin** lives in the top bar and as a bar over the primary viewport;
+   the conversation opens as a 460 px drawer. Every answer carries evidence
+   tiles (big numbers), the criterion it applied with its source, buttons to
+   add to the report or step through slices, and a "Sent to Claude" disclosure
+   listing exactly what left the machine (never pixels or identifiers).
+5. **Study timeline in the banner** (prior / current chips) so Compare is one
+   click and the current study is always marked.
+6. **Library shows readiness.** Each patient row carries an anatomy state
+   (ready · n structures / segmenting % / queued) and the flags found so far
+   (ICA 139°, Airway III, RP carotid 3.8 mm). Drop zone with progress;
+   Browse folder button; background work panel; tumour board list.
+7. **Typography:** Instrument Sans for UI, JetBrains Mono for numbers. Muted
+   text lightened to #6B7684 for contrast on panels.

@@ -124,3 +124,21 @@ finding). Findings-card flag built from geometry, after registration lands:
 - MR (T1 post-contrast) nerve enlargement/enhancement when an MR series exists.
 Output: "possible Vn perineural spread, recommend MRI" with each number drawn
 on the image. Never a diagnosis.
+
+## Facial trauma workspace (added 2026-09-17; Brian: "CT for fractures + 3D recons of bone to eval fracture patterns")
+
+No panoramic reformat. Build on the skull / mandible / teeth masks:
+- Bone recon with per-fragment colouring (bone mask split at fracture lines
+  into connected fragments), skin off, teeth coloured, preset views incl.
+  head-of-bed surgeon's view.
+- Mirror overlay: mirror the uninjured side across the midsagittal plane,
+  register onto the injured side, displacement heatmap + numbers (ZMC
+  rotation/posterior displacement, condylar angulation/override, rim step).
+- Orbital volume difference (enophthalmos risk > ~1.5-2 mL) and floor /
+  medial wall defect area for implant sizing.
+- Fracture line detection (cortical breach detector) labelled by mandible
+  region (symphysis, parasymphysis, body, angle, ramus, condyle, subcondylar)
+  and midface pattern (Le Fort I-III, ZMC, NOE, frontal sinus) from buttress
+  crossings; tooth-in-line-of-fracture flag; dental arch relationship.
+- Plate and screw planning on the surface (shares the VSP osteotomy tooling).
+Separate "Trauma" findings card; every line drawn on the 3D surface.

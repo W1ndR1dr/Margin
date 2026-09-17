@@ -2,6 +2,7 @@ import { useCallback, useEffect } from 'react';
 import { useAppStore } from './store/useAppStore';
 import { checkBackend, openSeriesFromUrl } from './library';
 import { RAIL_TOOLS, initCornerstone, viewer } from './viewer/ViewerCore';
+import { carotid } from './tools/carotid';
 import { WINDOW_PRESETS } from './viewer/presets';
 import { TopBar } from './components/TopBar';
 import { ToolRail } from './components/ToolRail';
@@ -106,6 +107,8 @@ export default function App() {
       if (e.key === 'Escape') {
         if (s.paletteOpen || s.shortcutsOpen || s.importOpen) {
           set({ paletteOpen: false, shortcutsOpen: false, importOpen: false });
+        } else if (carotid.cancel()) {
+          // a head-and-neck tool was running; it put the viewer back itself
         } else if (s.layout !== 'none') {
           viewer.setActiveTool('WindowLevel');
         }
@@ -139,6 +142,11 @@ export default function App() {
       }
 
       switch (key) {
+        case 'c':
+          // head & neck: carotid encasement (DESIGN.md rail group 3)
+          e.preventDefault();
+          carotid.start();
+          return;
         case 'f':
           e.preventDefault();
           set({ maximized: s.maximized === s.activePane ? null : s.activePane });

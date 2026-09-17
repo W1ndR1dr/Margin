@@ -39,6 +39,7 @@ import {
   EllipticalROITool,
   RectangleROITool,
   PlanarFreehandROITool,
+  CircleROITool,
   TrackballRotateTool,
 } from '@cornerstonejs/tools';
 
@@ -112,6 +113,21 @@ const ANNOTATION_TOOLS = [
   'PlanarFreehandROI',
 ];
 
+/**
+ * Annotation tools driven by a head-and-neck tool rather than by the rail.
+ * They live in every tool group so `setActiveTool` can reach them, but they
+ * stay out of ANNOTATION_TOOLS so their scratch annotations do not clutter the
+ * measurement list — the tool publishes its own row instead.
+ *
+ * The carotid lumen circle is an input, not a measurement: an empty text-line
+ * list keeps its outline on the image without a stats box over the tumour.
+ */
+const TOOL_DRIVEN_TOOLS: Array<[string, Record<string, unknown>]> = [
+  ['CircleROI', { getTextLines: () => [] as string[] }],
+];
+
+const TOOL_DRIVEN_NAMES = TOOL_DRIVEN_TOOLS.map(([name]) => name);
+
 const MEASUREMENT_LABEL: Record<string, string> = {
   Length: 'Length',
   Bidirectional: 'Bidirectional',
@@ -164,6 +180,7 @@ export function initCornerstone(): Promise<void> {
       EllipticalROITool,
       RectangleROITool,
       PlanarFreehandROITool,
+      CircleROITool,
       TrackballRotateTool,
     ].forEach((t) => addTool(t));
 
@@ -282,12 +299,26 @@ class ViewerCore {
   private lastProbeAt = 0;
   private boundEvents = false;
   private loadToken = 0;
+  /** Rows published by a head-and-neck tool rather than by a Cornerstone annotation. */
+  private derived = new Map<string, Measurement>();
+  /** View reference (annotation metadata) that makes a derived row jumpable. */
+  private derivedRefs = new Map<string, unknown>();
 
   /* ---------------- element registration ---------------- */
 
   registerElement(id: PaneId, el: HTMLDivElement | null): void {
     if (el) this.elements.set(id, el);
     else this.elements.delete(id);
+  }
+
+  /** The Cornerstone host element for a pane — the mount point for tool overlays. */
+  getElement(id: PaneId): HTMLDivElement | null {
+    return this.elements.get(id) ?? null;
+  }
+
+  /** Which panes are live for the series on screen. */
+  get panes(): PaneId[] {
+    return [...this.activePanes];
   }
 
   observeStage(stage: HTMLElement | null): void {
@@ -419,8 +450,9 @@ class ViewerCore {
       StackScrollTool.toolName,
       ...ANNOTATION_TOOLS,
     ].forEach((t) => tg.addTool(t as string));
+    TOOL_DRIVEN_TOOLS.forEach(([t, cfg]) => tg.addTool(t, cfg));
     tg.addViewport(VIEWPORT_ID.stack, ENGINE_ID);
-    ANNOTATION_TOOLS.forEach((t) => tg.setToolPassive(t));
+    [...ANNOTATION_TOOLS, ...TOOL_DRIVEN_NAMES].forEach((t) => tg.setToolPassive(t));
     tg.setToolActive(WindowLevelTool.toolName, {
       bindings: [{ mouseButton: MouseBindings.Primary }],
     });
@@ -626,6 +658,7 @@ class ViewerCore {
       StackScrollTool.toolName,
       ...ANNOTATION_TOOLS,
     ].forEach((t) => mpr.addTool(t as string));
+    TOOL_DRIVEN_TOOLS.forEach(([t, cfg]) => mpr.addTool(t, cfg));
 
     mpr.addTool(CrosshairsTool.toolName, {
       getReferenceLineColor: (viewportId: string) => PLANE_COLOR[viewportId] ?? 'rgb(200,200,200)',
@@ -636,7 +669,7 @@ class ViewerCore {
     });
 
     MPR_PANES.forEach((p) => mpr.addViewport(VIEWPORT_ID[p], ENGINE_ID));
-    ANNOTATION_TOOLS.forEach((t) => mpr.setToolPassive(t));
+    [...ANNOTATION_TOOLS, ...TOOL_DRIVEN_NAMES].forEach((t) => mpr.setToolPassive(t));
     mpr.setToolActive(PanTool.toolName, { bindings: [{ mouseButton: MouseBindings.Secondary }] });
     mpr.setToolActive(ZoomTool.toolName, { bindings: [{ mouseButton: MouseBindings.Auxiliary }] });
     mpr.setToolActive(StackScrollTool.toolName, { bindings: [{ mouseButton: MouseBindings.Wheel }] });
@@ -769,7 +802,19 @@ class ViewerCore {
         sliceIndex: typeof a.metadata?.sliceIndex === 'number' ? a.metadata.sliceIndex : null,
       });
     }
+    this.derived.forEach((m) => list.push(m));
     useAppStore.getState().set({ measurements: list });
+  }
+
+  /**
+   * Publish a head-and-neck tool result as a measurement row. It behaves like
+   * any other row (click to jump, trash to remove) but is backed by the tool,
+   * not by a Cornerstone annotation.
+   */
+  addDerivedMeasurement(m: Measurement, viewRef?: unknown): void {
+    this.derived.set(m.uid, m);
+    if (viewRef) this.derivedRefs.set(m.uid, viewRef);
+    this.syncMeasurements();
   }
 
   private paneForAnnotation(a: { metadata?: { viewPlaneNormal?: number[] } }): PaneId {
@@ -783,6 +828,28 @@ class ViewerCore {
   }
 
   jumpToMeasurement(uid: string): void {
+    const derived = this.derived.get(uid);
+    if (derived) {
+      const vp = this.getViewport(derived.paneId) as
+        | (Types.IViewport & { setViewReference?: (r: unknown) => void })
+        | null;
+      const ref = this.derivedRefs.get(uid);
+      // A stored view reference restores the exact plane the tool measured on;
+      // a bare slice index is the fallback.
+      if (vp?.setViewReference && ref) {
+        try {
+          vp.setViewReference(ref);
+          vp.render();
+          this.refreshPaneState(derived.paneId);
+        } catch {
+          if (derived.sliceIndex !== null) this.setSlice(derived.paneId, derived.sliceIndex);
+        }
+      } else if (derived.sliceIndex !== null) {
+        this.setSlice(derived.paneId, derived.sliceIndex);
+      }
+      useAppStore.getState().set({ activePane: derived.paneId, selectedMeasurement: uid });
+      return;
+    }
     const a = csAnnotation.state.getAnnotation(uid);
     if (!a?.metadata) return;
     const pane = this.paneForAnnotation(a);
@@ -799,6 +866,11 @@ class ViewerCore {
   }
 
   removeMeasurement(uid: string): void {
+    if (this.derived.delete(uid)) {
+      this.derivedRefs.delete(uid);
+      this.syncMeasurements();
+      return;
+    }
     try {
       csAnnotation.state.removeAnnotation(uid);
       this.engine?.render();
@@ -809,6 +881,8 @@ class ViewerCore {
   }
 
   clearMeasurements(): void {
+    this.derived.clear();
+    this.derivedRefs.clear();
     try {
       csAnnotation.state.removeAllAnnotations();
       this.engine?.render();
@@ -1103,16 +1177,30 @@ class ViewerCore {
     ctx.fillRect(0, 0, out.width, out.height);
     ctx.drawImage(source, 0, 0);
 
-    // burn in the measurement overlay when we can
+    // Burn in every SVG overlay sitting on the viewport: Cornerstone's own
+    // annotation layer plus any head-and-neck tool layer (e.g. the carotid
+    // contact arc), in DOM order so the tool draws on top.
     try {
       const el = vp.element as HTMLElement | undefined;
-      const svg = el?.querySelector('.svg-layer') as SVGSVGElement | null;
-      if (svg) {
+      const elRect = el?.getBoundingClientRect();
+      const scale = elRect?.width ? out.width / elRect.width : 1;
+      const layers = el ? Array.from(el.querySelectorAll('svg')) : [];
+      for (const svg of layers) {
         const rect = svg.getBoundingClientRect();
+        if (!rect.width || !rect.height) continue;
         const clone = svg.cloneNode(true) as SVGSVGElement;
         clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
         clone.setAttribute('width', String(rect.width));
         clone.setAttribute('height', String(rect.height));
+        // Tool layers carry inherited CSS custom properties; inline them so the
+        // serialised copy keeps its colour.
+        const cs = getComputedStyle(svg);
+        const tokens = ['--warn', '--danger', '--accent', '--text'];
+        const decl = tokens
+          .map((t) => `${t}:${cs.getPropertyValue(t).trim()}`)
+          .filter((d) => !d.endsWith(':'))
+          .join(';');
+        if (decl) clone.setAttribute('style', `${clone.getAttribute('style') ?? ''};${decl}`);
         const data = new XMLSerializer().serializeToString(clone);
         const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(data)}`;
         const img = new Image();
@@ -1121,7 +1209,10 @@ class ViewerCore {
           img.onerror = () => resolve();
           img.src = url;
         });
-        if (img.width) ctx.drawImage(img, 0, 0, out.width, out.height);
+        if (!img.width) continue;
+        const dx = elRect ? (rect.left - elRect.left) * scale : 0;
+        const dy = elRect ? (rect.top - elRect.top) * scale : 0;
+        ctx.drawImage(img, dx, dy, rect.width * scale, rect.height * scale);
       }
     } catch {
       /* overlay is a nicety, never fail the capture for it */

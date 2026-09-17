@@ -24,6 +24,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useAppStore, type GridMode } from '../store/useAppStore';
+import { carotid, useCarotidStore } from '../tools/carotid';
 import { RAIL_TOOLS, viewer } from '../viewer/ViewerCore';
 import { VOLUME_PRESETS } from '../viewer/presets';
 import { Popover, PopItem, Tip } from './ui';
@@ -43,9 +44,8 @@ const TOOL_ICON: Record<string, LucideIcon> = {
   Probe: Pipette,
 };
 
-/** Head & neck tools land in v0.2+; the rail shows them so the plan is legible. */
+/** Head & neck tools; those still on the roadmap carry their version instead. */
 const HN_TOOLS: Array<{ id: string; label: string; key: string; icon: LucideIcon; when: string }> = [
-  { id: 'carotid', label: 'Carotid encasement', key: 'C', icon: Waypoints, when: 'v0.2' },
   { id: 'node', label: 'Node level', key: 'N', icon: Circle, when: 'v0.3' },
   { id: 'airway', label: 'Airway analyser', key: 'Y', icon: Wind, when: 'v0.3' },
   { id: 'mandible', label: 'Mandible planner', key: 'M', icon: Box, when: 'v0.4' },
@@ -65,6 +65,7 @@ export function ToolRail({ onScreenshot }: { onScreenshot: () => void }) {
   const volumePresetId = useAppStore((s) => s.volumePresetId);
   const panelTab = useAppStore((s) => s.panelTab);
   const cine = useAppStore((s) => s.cine);
+  const carotidPhase = useCarotidStore((s) => s.phase);
   const set = useAppStore((s) => s.set);
 
   const idle = layout === 'none';
@@ -97,6 +98,16 @@ export function ToolRail({ onScreenshot }: { onScreenshot: () => void }) {
       {measure.map((t) => renderTool(t.name, t.label, t.key))}
 
       <div className="rail-sep" />
+
+      <button
+        className={`rail-btn${carotidPhase !== 'idle' ? ' on' : ''}`}
+        disabled={layout !== 'mpr'}
+        onClick={() => carotid.start()}
+        aria-label="Carotid encasement"
+      >
+        <Waypoints size={18} strokeWidth={1.5} />
+        <Tip label="Carotid encasement" hotkey="C" />
+      </button>
 
       {HN_TOOLS.map((t) => (
         <button

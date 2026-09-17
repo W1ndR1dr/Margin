@@ -1,0 +1,243 @@
+/* Carotid encasement — guided tool panel (DESIGN.md: Tools tab). */
+
+.ct-card {
+  margin: 10px 12px;
+  padding: 12px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  background: var(--raised);
+}
+
+.ct-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+}
+
+.ct-head .ct-name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--t-13);
+  font-weight: 500;
+  color: var(--text);
+}
+
+.ct-desc {
+  margin: 8px 0 0;
+  font-size: var(--t-12);
+  line-height: 1.6;
+  color: var(--text-3);
+}
+
+.ct-card .btn {
+  width: 100%;
+  margin-top: 12px;
+  height: var(--h-field);
+}
+
+/* ---- stepper ---- */
+
+.ct-steps {
+  padding: 2px 12px 8px;
+}
+
+.ct-step {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  padding: 8px 0;
+  align-items: flex-start;
+}
+
+.ct-step + .ct-step::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: -8px;
+  height: 16px;
+  width: 1px;
+  background: var(--hairline-2);
+}
+
+.ct-step .n {
+  flex: none;
+  width: 21px;
+  height: 21px;
+  border-radius: 99px;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: var(--t-11);
+  color: var(--text-3);
+  border: 1px solid var(--hairline-2);
+  background: var(--panel);
+  transition: color var(--fast) var(--ease), border-color var(--fast) var(--ease),
+    background var(--fast) var(--ease);
+}
+
+.ct-step .ct-t {
+  font-size: var(--t-12);
+  color: var(--text-3);
+  line-height: 1.45;
+}
+
+.ct-step .ct-s {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--t-11);
+  color: var(--text-3);
+  opacity: 0.8;
+}
+
+.ct-step.on .n {
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.ct-step.on .ct-t {
+  color: var(--text);
+}
+
+.ct-step.done .n {
+  color: var(--accent);
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+
+.ct-step.done .ct-t {
+  color: var(--text-2);
+}
+
+/* ---- inline hint ---- */
+
+.ct-hint {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 0 12px 10px;
+  padding: 9px 10px;
+  border: 1px solid rgba(245, 165, 36, 0.35);
+  background: rgba(245, 165, 36, 0.08);
+  border-radius: var(--r-ctl);
+  color: var(--warn);
+  font-size: var(--t-12);
+  line-height: 1.5;
+}
+
+.ct-hint .ico {
+  flex: none;
+  margin-top: 1px;
+}
+
+.ct-hint .btn {
+  margin-top: 8px;
+  height: 26px;
+}
+
+/* ---- result ---- */
+
+.ct-result {
+  margin: 0 12px 12px;
+  padding: 14px 14px 12px;
+  border: 1px solid var(--hairline-2);
+  border-radius: var(--r-card);
+  background: var(--raised);
+}
+
+.ct-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.ct-big {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 40px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.ct-big .deg {
+  font-size: 22px;
+  color: var(--text-2);
+  margin-left: 1px;
+}
+
+.ct-line {
+  margin-top: 8px;
+  font-size: var(--t-13);
+  color: var(--text);
+}
+
+.ct-meta {
+  margin-top: 3px;
+  font-family: var(--font-mono);
+  font-size: var(--t-11);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.ct-kv {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 10px;
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--hairline);
+}
+
+.ct-kv dt {
+  font-size: var(--t-11);
+  color: var(--text-3);
+}
+
+.ct-kv dd {
+  margin: 0;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: var(--t-11);
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.ct-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.ct-actions .btn {
+  flex: 1;
+  height: var(--h-field);
+}
+
+/* ---- severity chip: colour plus a shape, for colour-blind safety ---- */
+
+.ct-sev {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding: 4px 8px;
+  border-radius: 99px;
+  border: 1px solid;
+  font-size: var(--t-11);
+  white-space: nowrap;
+}
+
+.ct-sev svg {
+  display: block;
+}
+
+.ct-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 2px 12px 12px;
+}

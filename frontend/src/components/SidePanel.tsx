@@ -17,6 +17,7 @@ import {
 import { PANE_META, useAppStore, type PanelTab } from '../store/useAppStore';
 import { viewer } from '../viewer/ViewerCore';
 import { formatDicomDate, formatPersonName } from '../api/client';
+import { CarotidPanel } from '../tools/carotid';
 import { APP_NAME } from '../config';
 
 const TABS: Array<{ id: PanelTab; label: string }> = [
@@ -162,31 +163,7 @@ function StructuresTab() {
 function ToolsTab() {
   return (
     <div className="side-body">
-      <div className="panel-title">Carotid encasement · v0.2</div>
-      <div className="card">
-        <h4>Degrees of circumferential contact</h4>
-        <p>
-          Trace the carotid lumen and the tumour on the same axial slice; {APP_NAME} reports the arc of
-          contact and grades it.
-        </p>
-      </div>
-      <div className="step">
-        <span className="n">1</span>
-        <span>Circle the carotid lumen on the slice of maximum contact</span>
-      </div>
-      <div className="step">
-        <span className="n">2</span>
-        <span>Trace the tumour margin where it abuts the vessel</span>
-      </div>
-      <div className="step">
-        <span className="n">3</span>
-        <span>Read the contact arc and add it to the report</span>
-      </div>
-      <div style={{ display: 'flex', gap: 6, padding: '12px' }}>
-        <span className="chip ok">&lt;180° abutment</span>
-        <span className="chip warn">180–270°</span>
-        <span className="chip danger">&gt;270° encasement</span>
-      </div>
+      <CarotidPanel />
       <div className="empty-note">
         Node level mapping, airway analysis and the mandible planner follow on the v0.3–v0.4 roadmap.
       </div>

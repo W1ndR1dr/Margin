@@ -1,81 +1,46 @@
 /**
- * The Tools-tab panel for the airway analyser: a three-step stepper (seed,
- * optional glottis, optional reference bracket), the input controls, the
- * result card and a CSA-versus-arclength chart drawn inline from design
- * tokens. Dragging on the chart brackets the reference segment.
+ * The airway panel — patency for anaesthesia planning, NOT a stenosis grade.
+ *
+ * ROADMAP.md item 8 (Brian, 2026-09-17: Myer–Cotton is a "parlor trick"):
+ * stenosis grading is out of scope. What the anaesthetist actually needs is
+ * the narrowest lumen, where it is, and how far it sits from the glottis. So
+ * the hero numbers here are the minimum cross-sectional area and its
+ * equivalent diameter; the reduction against the reference segment stays as a
+ * secondary measurement because it is a geometric fact the user brackets
+ * themselves, and no grade letter appears anywhere.
+ *
+ * The CSA chart survives intact: it is the one place where the shape of the
+ * airway along its length is visible, and dragging on it re-brackets the
+ * reference.
  */
 import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import {
-  Brackets,
-  CornerUpLeft,
-  Loader,
-  MapPin,
-  Play,
-  Plus,
-  RefreshCw,
-  TriangleAlert,
-  Wind,
-  X,
-} from 'lucide-react';
 
 import { type AirwayResult } from '../../api/client';
 import { useAppStore } from '../../store/useAppStore';
+import { Button, Icon, MarginMark, Tile, TileRow, Toggle, type Severity } from '../../ui';
 import { airway, inputsChanged, useAirwayStore } from './airwayTool';
-import {
-  GRADE_RANGE,
-  GRADE_SEVERITY,
-  minEquivalentDiameterMm,
-  narrative,
-  type GradeSeverity,
-} from './report';
+import { minEquivalentDiameterMm } from './report';
 import { describeReference, nearestSample, rangeLabel, sampleSpan } from './reference';
 import './airway.css';
 
-/* ---------------- Myer–Cotton chip ---------------- */
+/* ------------------------------------------------------------------ */
+/* patency                                                             */
+/* ------------------------------------------------------------------ */
 
-const SEV_COLOR: Record<GradeSeverity, { color: string; tint: string }> = {
-  ok: { color: 'var(--ok)', tint: 'rgba(74, 222, 128, 0.10)' },
-  warn: { color: 'var(--warn)', tint: 'rgba(245, 165, 36, 0.10)' },
-  danger: { color: 'var(--danger)', tint: 'rgba(240, 85, 79, 0.10)' },
-};
+/** Anaesthesia-facing thresholds on the minimum equivalent diameter. */
+const PATENT_MM = 10;
+const CAUTION_MM = 6;
 
-/** Colour plus a shape, so the grade survives colour blindness. */
-function GradeGlyph({ severity }: { severity: GradeSeverity }) {
-  return (
-    <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden>
-      {severity === 'ok' && <circle cx="6" cy="6" r="2.6" fill="currentColor" />}
-      {severity === 'warn' && (
-        <path
-          d="M6 1.6a4.4 4.4 0 0 1 0 8.8"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-        />
-      )}
-      {severity === 'danger' && (
-        <circle cx="6" cy="6" r="4.4" fill="none" stroke="currentColor" strokeWidth="2.2" />
-      )}
-    </svg>
-  );
+function patency(eqMm: number): { severity: Severity; word: string } {
+  if (!Number.isFinite(eqMm)) return { severity: 'info', word: 'not measurable' };
+  if (eqMm >= PATENT_MM) return { severity: 'ok', word: 'patent' };
+  if (eqMm >= CAUTION_MM) return { severity: 'caution', word: 'narrowed' };
+  return { severity: 'danger', word: 'critically narrow' };
 }
 
-export function GradeChip({ grade }: { grade: 'I' | 'II' | 'III' | 'IV' }) {
-  const sev = GRADE_SEVERITY[grade];
-  const c = SEV_COLOR[sev];
-  return (
-    <span
-      className="aw-chip"
-      style={{ color: c.color, borderColor: c.color, background: c.tint }}
-      title={`Myer–Cotton ${grade} — ${GRADE_RANGE[grade]}`}
-    >
-      <GradeGlyph severity={sev} />
-      Myer–Cotton {grade}
-    </span>
-  );
-}
-
-/* ---------------- the CSA chart ---------------- */
+/* ------------------------------------------------------------------ */
+/* the CSA chart                                                       */
+/* ------------------------------------------------------------------ */
 
 const W = 300;
 const H = 158;
@@ -115,9 +80,7 @@ function CsaChart({ result }: { result: AirwayResult }) {
     const yMax = Math.max(1, ...ys, result.csa_ref_mm2) * 1.08;
     const px = (v: number) => PAD.l + (v / xMax) * (W - PAD.l - PAD.r);
     const py = (v: number) => H - PAD.b - (v / yMax) * (H - PAD.t - PAD.b);
-    const d = xs
-      .map((x, i) => `${i ? 'L' : 'M'}${px(x).toFixed(1)} ${py(ys[i] ?? 0).toFixed(1)}`)
-      .join(' ');
+    const d = xs.map((x, i) => `${i ? 'L' : 'M'}${px(x).toFixed(1)} ${py(ys[i] ?? 0).toFixed(1)}`).join(' ');
     const area =
       `M${px(xs[0] ?? 0).toFixed(1)} ${(H - PAD.b).toFixed(1)} ` +
       xs.map((x, i) => `L${px(x).toFixed(1)} ${py(ys[i] ?? 0).toFixed(1)}`).join(' ') +
@@ -125,7 +88,6 @@ function CsaChart({ result }: { result: AirwayResult }) {
     return { xs, ys, xMax, yMax, px, py, d, area };
   }, [result]);
 
-  // The reference band: the live drag while it lasts, else the stored bracket.
   const band = useMemo<[number, number] | null>(() => {
     if (drag?.moved) return drag.i0 <= drag.i1 ? [drag.i0, drag.i1] : [drag.i1, drag.i0];
     return sampleSpan(result.sample_k, refRangeK);
@@ -144,7 +106,6 @@ function CsaChart({ result }: { result: AirwayResult }) {
   const indexFromChartX = (xPx: number): number => {
     const t = (xPx - PAD.l) / (W - PAD.l - PAD.r);
     const target = Math.max(0, Math.min(1, t)) * geom.xMax;
-    // arclength is monotonic, so a linear scan is exact and fast enough.
     let best = 0;
     let bestD = Infinity;
     geom.xs.forEach((x, i) => {
@@ -183,11 +144,8 @@ function CsaChart({ result }: { result: AirwayResult }) {
     }
     const i = indexFromChartX(chartX(e.clientX));
     setDrag(null);
-    if (drag.moved && canDrag) {
-      airway.setReferenceFromSamples(drag.i0, i);
-    } else if (!drag.moved) {
-      airway.jumpToIndex(i);
-    }
+    if (drag.moved && canDrag) airway.setReferenceFromSamples(drag.i0, i);
+    else if (!drag.moved) airway.jumpToIndex(i);
   };
 
   const yTicks = niceTicks(geom.yMax * 0.92, 3);
@@ -214,17 +172,9 @@ function CsaChart({ result }: { result: AirwayResult }) {
           if (!drag) setLive(null);
         }}
       >
-        {/* grid + y axis */}
         {yTicks.map((v) => (
           <g key={`y${v}`}>
-            <line
-              x1={PAD.l}
-              x2={W - PAD.r}
-              y1={geom.py(v)}
-              y2={geom.py(v)}
-              stroke="var(--hairline)"
-              strokeWidth="1"
-            />
+            <line x1={PAD.l} x2={W - PAD.r} y1={geom.py(v)} y2={geom.py(v)} stroke="var(--hairline)" strokeWidth="1" />
             <text x={PAD.l - 5} y={geom.py(v)} className="aw-tick" textAnchor="end" dominantBaseline="middle">
               {v}
             </text>
@@ -236,7 +186,6 @@ function CsaChart({ result }: { result: AirwayResult }) {
           </text>
         ))}
 
-        {/* the reference bracket */}
         {band && (
           <g>
             <rect
@@ -252,7 +201,6 @@ function CsaChart({ result }: { result: AirwayResult }) {
           </g>
         )}
 
-        {/* reference CSA */}
         <line
           x1={PAD.l}
           x2={W - PAD.r}
@@ -266,11 +214,9 @@ function CsaChart({ result }: { result: AirwayResult }) {
           ref {Math.round(result.csa_ref_mm2)}
         </text>
 
-        {/* the curve */}
-        <path d={geom.area} fill="var(--accent)" opacity="0.10" />
-        <path d={geom.d} fill="none" stroke="var(--accent)" strokeWidth="1.6" strokeLinejoin="round" />
+        <path d={geom.area} fill="var(--airway)" opacity="0.1" />
+        <path d={geom.d} fill="none" stroke="var(--airway)" strokeWidth="1.6" strokeLinejoin="round" />
 
-        {/* glottis */}
         {glottisAt !== null && (
           <g>
             <line
@@ -293,7 +239,6 @@ function CsaChart({ result }: { result: AirwayResult }) {
           </g>
         )}
 
-        {/* minimum */}
         <line
           x1={geom.px(geom.xs[result.min_csa_index] ?? 0)}
           x2={geom.px(geom.xs[result.min_csa_index] ?? 0)}
@@ -318,7 +263,6 @@ function CsaChart({ result }: { result: AirwayResult }) {
           min {result.min_csa_mm2.toFixed(0)}
         </text>
 
-        {/* cursor */}
         {at !== result.min_csa_index && (
           <circle
             cx={geom.px(geom.xs[at] ?? 0)}
@@ -330,7 +274,6 @@ function CsaChart({ result }: { result: AirwayResult }) {
           />
         )}
 
-        {/* axes */}
         <line x1={PAD.l} x2={W - PAD.r} y1={H - PAD.b} y2={H - PAD.b} stroke="var(--hairline-2)" />
         <line x1={PAD.l} x2={PAD.l} y1={PAD.t} y2={H - PAD.b} stroke="var(--hairline-2)" />
       </svg>
@@ -347,8 +290,8 @@ function CsaChart({ result }: { result: AirwayResult }) {
       </div>
       <div className="aw-chart-hint">
         {canDrag
-          ? 'Click the chart to move the MPR views to that level · drag across a normal segment to make it the reference.'
-          : 'Click the chart to move the MPR views to that level.'}
+          ? 'Click the chart to move the views to that level · drag across a normal segment to make it the reference.'
+          : 'Click the chart to move the views to that level.'}
       </div>
     </div>
   );
@@ -373,7 +316,7 @@ function Stepper() {
       sub:
         seed !== null
           ? `seed i ${seed[0]} · j ${seed[1]} · k ${seed[2]}`
-          : 'One click in the axial, sagittal or coronal view, inside the dark lumen.',
+          : 'One click in any view, inside the dark lumen.',
       state: phase === 'seed' ? 'on' : seed !== null ? 'done' : 'todo',
     },
     {
@@ -381,7 +324,7 @@ function Stepper() {
       sub:
         glottis !== null
           ? `glottis at slice ${glottis + 1}`
-          : 'Optional — gives the distance from the glottis to the narrowest point and lets the grade stop there.',
+          : 'Optional — gives the distance from the glottis to the narrowest point, which is what the anaesthetist needs.',
       state: optional(glottis !== null, picking === 'glottis'),
     },
     {
@@ -391,7 +334,7 @@ function Stepper() {
           ? `first end at slice ${refPending + 1} — now click the other end`
           : refRange !== null
             ? `reference ${rangeLabel(refRange)} · ${refRange[1] - refRange[0] + 1} slices, median CSA`
-            : 'Optional — two clicks at the ends of healthy trachea, or drag on the chart after a run. Otherwise the reference is the 75th percentile below the narrowest point.',
+            : 'Optional — two clicks at the ends of healthy trachea, or drag on the chart after a run.',
       state: optional(refRange !== null, picking === 'ref'),
     },
   ];
@@ -400,7 +343,7 @@ function Stepper() {
     <div className="ct-steps">
       {steps.map((s, i) => (
         <div key={s.title} className={`ct-step${s.state === 'on' ? ' on' : ''}${s.state === 'done' ? ' done' : ''}`}>
-          <span className="n">{s.state === 'done' ? '✓' : i + 1}</span>
+          <span className="n">{s.state === 'done' ? <Icon name="check" size={11} /> : i + 1}</span>
           <span className="ct-t">
             {s.title}
             <span className="ct-s">{s.sub}</span>
@@ -428,64 +371,65 @@ function Inputs() {
   return (
     <div className="aw-inputs">
       <div className="aw-actions">
-        <button
-          className={`btn${picking === 'glottis' ? ' on' : ''}`}
+        <Button
+          size="sm"
+          icon="pin"
+          active={picking === 'glottis'}
           disabled={busy}
           onClick={() => airway.armGlottis()}
           title="Click at the level of the true vocal folds in any view"
         >
-          <MapPin size={14} strokeWidth={1.8} />
           {picking === 'glottis' ? 'Click the vocal folds…' : glottis === null ? 'Mark the vocal folds' : 'Re-mark'}
-        </button>
+        </Button>
         {glottis !== null && (
-          <button className="btn" disabled={busy} onClick={() => airway.clearGlottis()}>
+          <Button size="sm" disabled={busy} onClick={() => airway.clearGlottis()}>
             Clear
-          </button>
+          </Button>
         )}
       </div>
       <div className="aw-actions">
-        <button
-          className={`btn${picking === 'ref' ? ' on' : ''}`}
+        <Button
+          size="sm"
+          icon="bracket"
+          active={picking === 'ref'}
           disabled={busy}
           onClick={() => airway.armReference()}
           title="Two clicks, one at each end of a normal segment; only the slice of each click matters"
         >
-          <Brackets size={14} strokeWidth={1.8} />
           {picking === 'ref' ? 'Click both ends…' : refRange === null ? 'Bracket a normal segment' : 'Re-bracket'}
-        </button>
+        </Button>
         {refRange !== null && (
-          <button className="btn" disabled={busy} onClick={() => airway.clearReference()}>
+          <Button size="sm" disabled={busy} onClick={() => airway.clearReference()}>
             Clear
-          </button>
+          </Button>
         )}
       </div>
-      <label
-        className={`aw-check${glottis === null ? ' off' : ''}`}
-        title="Drop the pharynx and nose above the vocal folds so the grade describes the laryngotracheal airway"
-      >
-        <input
-          type="checkbox"
-          checked={cap}
-          disabled={busy || glottis === null}
-          onChange={(e) => airway.setCapAtGlottis(e.target.checked)}
-        />
-        <span>Grade only at and below the vocal folds</span>
-      </label>
+
+      <Toggle
+        leading
+        checked={cap}
+        disabled={busy || glottis === null}
+        onChange={(v) => airway.setCapAtGlottis(v)}
+        label="Stop at the vocal folds"
+        hint="Drops the pharynx and nose above the glottis, so the profile describes the laryngotracheal airway."
+      />
+
       {phase === 'setup' && (
-        <div className="aw-actions">
-          <button className="btn primary" disabled={!seed || picking !== null} onClick={() => void airway.run()}>
-            <Play size={14} strokeWidth={1.8} />
-            Run
-          </button>
-        </div>
+        <Button
+          tone="primary"
+          size="sm"
+          icon="play"
+          block
+          disabled={!seed || picking !== null}
+          onClick={() => void airway.run()}
+        >
+          Run
+        </Button>
       )}
       {phase === 'result' && changed && (
-        <div className="aw-actions">
-          <button className="btn primary" disabled={picking !== null} onClick={() => void airway.run()}>
-            <RefreshCw size={14} strokeWidth={1.8} />
-            Re-run with these inputs
-          </button>
-        </div>
+        <Button tone="primary" size="sm" icon="refresh" block disabled={picking !== null} onClick={() => void airway.run()}>
+          Re-run with these inputs
+        </Button>
       )}
     </div>
   );
@@ -498,40 +442,52 @@ function ResultCard() {
   const added = useAirwayStore((s) => s.added);
   const structureAdded = useAirwayStore((s) => s.structureAdded);
   const phase = useAirwayStore((s) => s.phase);
+  const glottis = useAirwayStore((s) => s.glottisSlice);
   const uid = useAppStore((s) => s.activeSeries?.series_uid);
   const changed = useAirwayStore((s) => inputsChanged(s, uid));
   if (!result) return null;
 
   const eq = minEquivalentDiameterMm(result);
+  const pat = patency(eq);
   const running = phase === 'running';
   const stale = changed && !running;
+  const atSlice = result.sample_k?.[result.min_csa_index];
 
   return (
     <div className={`ct-result${running ? ' aw-stale' : ''}`}>
       <div className="ct-top">
-        <div className="ct-big">
-          {Math.round(result.stenosis_pct)}
-          <span className="deg"> %</span>
-        </div>
-        {result.myer_cotton_grade && <GradeChip grade={result.myer_cotton_grade} />}
+        <span className="ct-head-line">
+          Airway {pat.word}
+          {typeof atSlice === 'number' ? ` · slice ${atSlice + 1}` : ''}
+        </span>
       </div>
 
-      <div className="ct-line">area reduction at the narrowest point</div>
-      <div className="ct-meta">{narrative(result)}</div>
+      <TileRow>
+        <Tile
+          size="lg"
+          value={result.min_csa_mm2.toFixed(1)}
+          unit="mm²"
+          label="narrowest lumen"
+          severity={pat.severity}
+        />
+        <Tile size="sm" value={eq.toFixed(1)} unit="mm" label="equivalent ⌀" severity={pat.severity} />
+        {result.distance_from_glottis_mm !== null && glottis !== null ? (
+          <Tile
+            size="sm"
+            value={result.distance_from_glottis_mm.toFixed(1)}
+            unit="mm"
+            label="below glottis"
+          />
+        ) : (
+          <Tile size="sm" value="—" label="below glottis" sub="not marked" />
+        )}
+      </TileRow>
 
       <dl className="ct-kv">
-        <dt>Minimum CSA</dt>
-        <dd>{result.min_csa_mm2.toFixed(1)} mm²</dd>
-        <dt>Equivalent diameter</dt>
-        <dd>{eq.toFixed(1)} mm</dd>
-        <dt>Stenosis length</dt>
+        <dt>Narrowed length</dt>
         <dd>{result.stenosis_length_mm.toFixed(1)} mm</dd>
-        <dt>Distance from glottis</dt>
-        <dd>
-          {result.distance_from_glottis_mm === null
-            ? '— not marked'
-            : `${result.distance_from_glottis_mm.toFixed(1)} mm`}
-        </dd>
+        <dt>Reduction vs reference</dt>
+        <dd>{Math.round(result.stenosis_pct)} %</dd>
         <dt>Reference CSA</dt>
         <dd>{result.csa_ref_mm2.toFixed(1)} mm²</dd>
         <dt>Reference</dt>
@@ -544,37 +500,34 @@ function ResultCard() {
 
       <CsaChart result={result} />
 
-      {stale && (
-        <div className="aw-stale-note">
-          The inputs changed since this result — re-run to update the grade.
-        </div>
-      )}
+      <p className="aw-caveat">
+        Patency for airway planning. {"Margin"} does not assign a stenosis grade — the reference
+        segment is yours to choose, so a percentage is a measurement, not a classification.
+      </p>
+
+      {stale && <div className="aw-stale-note">The inputs changed since this result — re-run to update it.</div>}
 
       <div className="ct-actions">
         {stale ? (
-          <button className="btn primary" onClick={() => void airway.run()} title="Run again with the new inputs">
-            <RefreshCw size={14} strokeWidth={1.8} />
+          <Button tone="primary" size="sm" icon="refresh" onClick={() => void airway.run()}>
             Re-run
-          </button>
+          </Button>
         ) : (
-          <button
-            className="btn primary"
+          <Button
+            tone="primary"
+            size="sm"
+            icon={added ? 'check' : 'plus'}
             disabled={added || running}
             onClick={() => airway.addToMeasurements()}
-            title={added ? 'Already in the measurement list' : 'Add the narrative to the Measure tab'}
           >
-            <Plus size={14} strokeWidth={1.8} />
             {added ? 'Added' : 'Add to measurements'}
-          </button>
+          </Button>
         )}
-        <button className="btn" disabled={running} onClick={() => airway.redo()} title="Start again from the seed">
-          <CornerUpLeft size={14} strokeWidth={1.8} />
+        <Button size="sm" icon="undo" disabled={running} onClick={() => airway.redo()}>
           Redo
-        </button>
+        </Button>
       </div>
-      {structureAdded && (
-        <div className="aw-note">The lumen is in the Structures tab and the 3D view.</div>
-      )}
+      {structureAdded && <div className="aw-note">The lumen is in the Structures list and the 3D view.</div>}
     </div>
   );
 }
@@ -590,25 +543,23 @@ export function AirwayPanel() {
     <>
       <div className="ct-card">
         <div className="ct-head">
-          <Wind size={16} strokeWidth={1.5} />
-          <span className="ct-name">Airway analyser</span>
-          <span className="kbd">Y</span>
+          <Icon name="airway" size={17} />
+          <span className="ct-name">Airway patency</span>
+          <kbd className="mg-kbd">Y</kbd>
         </div>
         <p className="ct-desc">
-          Cross-sectional area along the tracheal centreline, the narrowest point, the percentage
-          reduction against a normal reference and the Myer–Cotton grade.
+          Cross-sectional area along the tracheal centreline, the narrowest point and how far it sits
+          from the glottis — the numbers an anaesthetist asks for before induction.
         </p>
 
         {phase === 'idle' ? (
-          <button className="btn primary" onClick={() => airway.start()}>
-            <Play size={14} strokeWidth={1.8} />
+          <Button tone="primary" size="sm" icon="play" block onClick={() => airway.start()}>
             Start analysis
-          </button>
+          </Button>
         ) : (
-          <button className="btn" disabled={phase === 'running'} onClick={() => airway.cancel()}>
-            <X size={14} strokeWidth={1.8} />
+          <Button size="sm" icon="close" block disabled={phase === 'running'} onClick={() => airway.cancel()}>
             Cancel · Esc
-          </button>
+          </Button>
         )}
       </div>
 
@@ -616,17 +567,16 @@ export function AirwayPanel() {
 
       {hint && (
         <div className="ct-hint">
-          <TriangleAlert size={14} strokeWidth={1.8} className="ico" />
+          <Icon name="warning" size={14} className="ico" />
           <div>{hint}</div>
         </div>
       )}
 
       {phase === 'seed' && picking === null && (
         <div className="aw-actions">
-          <button className="btn" onClick={() => airway.armSeed()}>
-            <MapPin size={14} strokeWidth={1.8} />
+          <Button size="sm" icon="pin" onClick={() => airway.armSeed()}>
             Pick the seed again
-          </button>
+          </Button>
         </div>
       )}
 
@@ -634,7 +584,7 @@ export function AirwayPanel() {
 
       {phase === 'running' && (
         <div className="aw-running">
-          <Loader size={14} strokeWidth={1.8} className="spin" />
+          <MarginMark size={16} progress={null} />
           Segmenting the lumen, tracking the centreline and cutting perpendicular sections — a few
           seconds.
         </div>

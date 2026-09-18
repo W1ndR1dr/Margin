@@ -1,15 +1,18 @@
 import { useCallback, useEffect } from 'react';
-import { useAppStore } from './store/useAppStore';
+
+import { useAppStore, type PanelTab, type PaneId } from './store/useAppStore';
 import { checkBackend, openSeriesFromUrl } from './library';
 import { RAIL_TOOLS, initCornerstone, viewer } from './viewer/ViewerCore';
+import { presetsFor, normaliseModality } from './viewer/modality';
 import { carotid } from './tools/carotid';
 import { airway } from './tools/airway';
+import { AskDrawer } from './tools/ask';
 import { WINDOW_PRESETS } from './viewer/presets';
 import { TopBar } from './components/TopBar';
 import { ToolRail } from './components/ToolRail';
 import { ViewportGrid } from './components/ViewportGrid';
 import { Library } from './components/Library';
-import { SidePanel } from './components/SidePanel';
+import { ComingSoon, SidePanel } from './components/SidePanel';
 import { StatusBar } from './components/StatusBar';
 import {
   CommandPalette,
@@ -21,6 +24,16 @@ import {
 import { disarmRegionGrow } from './labels';
 import { formatPersonName } from './api/client';
 import { APP_NAME } from './config';
+
+/** Planes the V key cycles between as the primary view. */
+const PRIMARY_CYCLE: PaneId[] = ['axial', 'sagittal', 'coronal'];
+
+const TAB_BY_DIGIT: Record<string, PanelTab> = {
+  '1': 'findings',
+  '2': 'structures',
+  '3': 'measurements',
+  '4': 'report',
+};
 
 function isTyping(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null;
@@ -88,6 +101,13 @@ export default function App() {
     }
   }, []);
 
+  // The palette's "Snapshot PNG" command reaches the same code path.
+  useEffect(() => {
+    const h = () => void snapshot();
+    window.addEventListener('margin:snapshot', h);
+    return () => window.removeEventListener('margin:snapshot', h);
+  }, [snapshot]);
+
   /* ---- keyboard ---- */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -99,15 +119,21 @@ export default function App() {
         if (k === 'k') {
           e.preventDefault();
           set({ paletteOpen: !s.paletteOpen });
+        } else if (k === 'j') {
+          e.preventDefault();
+          set({ askOpen: !s.askOpen });
         } else if (k === 'l') {
           e.preventDefault();
-          set({ screen: s.screen === 'library' ? 'view' : 'library' });
+          set({ screen: s.screen === 'library' ? 'read' : 'library' });
         } else if (k === 'i') {
           e.preventDefault();
           set({ panelOpen: !s.panelOpen });
         } else if (k === 'o') {
           e.preventDefault();
           set({ importOpen: true });
+        } else if (TAB_BY_DIGIT[k]) {
+          e.preventDefault();
+          set({ panelTab: TAB_BY_DIGIT[k], panelOpen: true, askOpen: false });
         }
         return;
       }
@@ -120,6 +146,8 @@ export default function App() {
             importOpen: false,
             structuresMenuOpen: false,
           });
+        } else if (s.askOpen) {
+          set({ askOpen: false });
         } else if (airway.cancel() || carotid.cancel()) {
           // a head-and-neck tool was running; it put the viewer back itself
         } else if (s.layout !== 'none') {
@@ -134,7 +162,7 @@ export default function App() {
         set({ shortcutsOpen: true });
         return;
       }
-      if (s.screen !== 'view' || s.layout === 'none') return;
+      if (s.screen !== 'read' || s.layout === 'none') return;
 
       const key = e.key.toLowerCase();
 
@@ -157,7 +185,6 @@ export default function App() {
 
       switch (key) {
         case 'c':
-          // head & neck: carotid encasement (DESIGN.md rail group 3)
           e.preventDefault();
           carotid.start();
           return;
@@ -173,6 +200,24 @@ export default function App() {
           e.preventDefault();
           set({ maximized: s.maximized === s.activePane ? null : s.activePane });
           return;
+        case 'v': {
+          // Cycle which plane is the big one — the fastest way to change what
+          // you are reading without leaving the keyboard.
+          e.preventDefault();
+          if (s.layout !== 'mpr') return;
+          const i = PRIMARY_CYCLE.indexOf(s.primaryPane);
+          const next = PRIMARY_CYCLE[(i + 1) % PRIMARY_CYCLE.length];
+          set({ primaryPane: next, activePane: next, maximized: null });
+          return;
+        }
+        case '[':
+          e.preventDefault();
+          set({ grid: 'strip', maximized: null });
+          return;
+        case ']':
+          e.preventDefault();
+          set({ grid: '2x2', maximized: null });
+          return;
         case 'r':
           e.preventDefault();
           viewer.resetViews();
@@ -187,9 +232,14 @@ export default function App() {
           return;
         case 'q': {
           e.preventDefault();
-          const i = WINDOW_PRESETS.findIndex((p) => p.id === s.windowPresetId);
-          const next = WINDOW_PRESETS[(i + 1) % WINDOW_PRESETS.length];
-          viewer.applyWindow(next.ww, next.wc, next.id);
+          // Cycle within the presets that belong to THIS modality, so Q on an
+          // MR walks T1/T2/STIR rather than bone and lung HU windows.
+          const list = presetsFor(normaliseModality(s.activeSeries?.modality), WINDOW_PRESETS);
+          const i = list.findIndex((p) => p.id === s.windowPresetId);
+          const next = list[(i + 1) % list.length];
+          // applyPreset, not applyWindow: on MR the preset is a ratio that has
+          // to be re-anchored onto this volume's own intensity centre.
+          viewer.applyPreset(next.id);
           s.toast({ kind: 'info', title: next.label, message: `W ${next.ww} / L ${next.wc}` });
           return;
         }
@@ -219,6 +269,8 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [set, snapshot]);
 
+  const soon = screen === 'plan' || screen === 'compare' || screen === 'board';
+
   return (
     <div className="app">
       <TopBar />
@@ -228,17 +280,26 @@ export default function App() {
 
         <div className="workarea">
           {/* The viewer stays mounted so Cornerstone keeps its WebGL contexts. */}
-          <div style={{ position: 'absolute', inset: 0, visibility: screen === 'view' ? 'visible' : 'hidden' }}>
+          <div
+            className="viewer-host"
+            style={{ visibility: screen === 'read' ? 'visible' : 'hidden' }}
+          >
             <ViewportGrid />
           </div>
           {screen === 'library' && (
-            <div style={{ position: 'absolute', inset: 0, background: 'var(--canvas)', zIndex: 20 }}>
+            <div className="screen-over">
               <Library />
+            </div>
+          )}
+          {soon && (
+            <div className="screen-over">
+              <ComingSoon which={screen} />
             </div>
           )}
         </div>
 
         <SidePanel />
+        <AskDrawer />
       </div>
 
       <StatusBar />

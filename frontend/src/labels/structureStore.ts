@@ -26,6 +26,7 @@ import {
   type Category,
   type Rgb,
 } from './colors';
+import { anatomyProbe } from './anatomyProbe';
 import { lineOverlay } from './lineOverlay';
 import { segmentations, MAX_RESIDENT, type SegmentSpec } from './segmentationService';
 
@@ -134,6 +135,8 @@ function failed(title: string, e: unknown): void {
 /** Mark rows whose labelmap the service evicted to stay under the memory cap. */
 function markEvicted(evicted: string[]): void {
   if (!evicted.length) return;
+  // Their voxels are gone, so the cursor must stop claiming to know them.
+  evicted.forEach((id) => anatomyProbe.unregisterLayer(id));
   const s = useStructureStore.getState();
   s.set({
     items: s.items.map((it) =>
@@ -145,6 +148,30 @@ function markEvicted(evicted: string[]): void {
     title: `Unloaded ${evicted.length} labelmap${evicted.length > 1 ? 's' : ''}`,
     message: `Only ${MAX_RESIDENT} stay in memory. Press the eye to bring one back.`,
   });
+}
+
+/**
+ * Hand a labelmap's voxels to the cursor sampler so the anatomy chip and the
+ * status bar can name what the pointer is over (ROADMAP.md "the cursor knows
+ * where it is"). Rebuilt from the live rows, so a rename, a recolour or a
+ * removed sibling all land through the same path.
+ *
+ * A false return just means "no chip for this one" — never an error the user
+ * has to see.
+ */
+function syncAnatomyLayer(segmentationId: string): void {
+  const rows = rowsOf(segmentationId);
+  if (!rows.length) {
+    anatomyProbe.unregisterLayer(segmentationId);
+    return;
+  }
+  const names = new Map<number, string>();
+  const colors = new Map<number, string>();
+  for (const r of rows) {
+    names.set(r.segmentIndex, r.name);
+    colors.set(r.segmentIndex, rgbToCss(r.color));
+  }
+  anatomyProbe.registerSegmentation(segmentationId, names, colors);
 }
 
 /* ------------------------------------------------------------------ */
@@ -198,6 +225,7 @@ export async function addStructureFromLabel(
     ]);
     markEvicted(evicted);
     patchRow(row.id, { loaded: true, busy: null });
+    syncAnatomyLayer(segmentationId);
   } catch (e) {
     patchRow(row.id, { busy: null, loaded: false, error: (e as Error)?.message ?? String(e) });
     failed(`${opts.name} could not be displayed`, e);
@@ -258,6 +286,7 @@ export async function addStructureGroup(
         it.segmentationId === segmentationId ? { ...it, loaded: true, busy: null } : it,
       ),
     });
+    syncAnatomyLayer(segmentationId);
   } catch (e) {
     const after = useStructureStore.getState();
     after.set({
@@ -446,6 +475,7 @@ export async function setVisible(id: string, visible: boolean): Promise<void> {
       );
       markEvicted(evicted.filter((s) => s !== row.segmentationId));
       siblings.forEach((r) => patchRow(r.id, { loaded: true, busy: null }));
+      syncAnatomyLayer(row.segmentationId);
     } catch (e) {
       patchRow(id, { busy: null, error: (e as Error)?.message ?? String(e) });
       failed(`${row.name} could not be reloaded`, e);
@@ -543,6 +573,7 @@ export async function removeStructure(id: string): Promise<void> {
     distance: s.distance && (s.distance.aId === id || s.distance.bId === id) ? null : s.distance,
   });
   if (!useStructureStore.getState().distance) lineOverlay.hide();
+  syncAnatomyLayer(row.segmentationId);
 
   try {
     await analysis.deleteLabel(row.label_id);
@@ -633,6 +664,7 @@ export function swatch(row: Structure): string {
 
 export function resetStructures(): void {
   disarmRegionGrow();
+  anatomyProbe.clear();
   lineOverlay.hide();
   segmentations.clear();
   useStructureStore
@@ -643,4 +675,20 @@ export function resetStructures(): void {
 // A label belongs to one series: a new series invalidates every structure.
 useAppStore.subscribe((s, prev) => {
   if (s.activeSeries?.series_uid !== prev.activeSeries?.series_uid) resetStructures();
+});
+
+/**
+ * The sampler notifies only when the structure under the cursor actually
+ * changes, so this writes to the store a handful of times per sweep instead of
+ * once per mouse-move. That is what keeps the anatomy chip free.
+ */
+anatomyProbe.subscribe((reading) => {
+  useAppStore.getState().set({
+    anatomy: {
+      name: reading.hit?.name ?? null,
+      color: reading.hit?.color ?? null,
+      segmentationId: reading.hit?.segmentationId ?? null,
+      segmentIndex: reading.hit?.segmentIndex ?? null,
+    },
+  });
 });

@@ -1,0 +1,1533 @@
+/* ==================================================================
+   Margin design system — every control in src/ui.
+
+   All selectors are prefixed `mg-` so nothing here can collide with the
+   viewer's own classes or with Cornerstone's injected DOM. Everything is
+   built from tokens.css; there is not one hard-coded colour below.
+   ================================================================== */
+
+/* ---- the focus ring, once, for everything ------------------------ */
+.mg-btn:focus-visible,
+.mg-toggle:focus-visible,
+.mg-seg-opt:focus-visible,
+.mg-slider-rail:focus-visible,
+.mg-tab:focus-visible,
+.mg-chip.act:focus-visible,
+.mg-tile.act:focus-visible,
+.mg-pop-item:focus-visible,
+.mg-palette-item:focus-visible,
+.mg-toast-action:focus-visible,
+.mg-field-input:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+  position: relative;
+  z-index: 2;
+}
+
+/* ==================================================================
+   Button
+   ================================================================== */
+.mg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: var(--h-ctl);
+  padding: 0 11px;
+  border: 1px solid transparent;
+  border-radius: var(--r-ctl);
+  background: none;
+  color: var(--text-2);
+  font-family: var(--font-ui);
+  font-size: var(--t-12);
+  font-weight: 500;
+  letter-spacing: var(--ls-tight);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color var(--fast) var(--ease),
+    background var(--fast) var(--ease),
+    border-color var(--fast) var(--ease);
+}
+.mg-btn.s-sm {
+  height: 24px;
+  padding: 0 8px;
+  font-size: var(--t-11);
+  gap: 5px;
+}
+.mg-btn.only {
+  width: var(--h-ctl);
+  padding: 0;
+}
+.mg-btn.s-sm.only {
+  width: 24px;
+}
+.mg-btn.block {
+  width: 100%;
+}
+.mg-btn[disabled] {
+  opacity: 0.38;
+  pointer-events: none;
+}
+
+.mg-btn.t-secondary {
+  background: var(--raised);
+  border-color: var(--hairline);
+}
+.mg-btn.t-secondary:hover {
+  color: var(--text);
+  background: var(--raised-2);
+  border-color: var(--hairline-2);
+}
+.mg-btn.t-secondary:active {
+  background: var(--press);
+}
+
+.mg-btn.t-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+.mg-btn.t-primary:hover {
+  background: var(--accent-hi);
+  border-color: var(--accent-hi);
+}
+
+.mg-btn.t-ghost:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+.mg-btn.t-ghost:active {
+  background: var(--press);
+}
+
+.mg-btn.t-danger {
+  background: var(--raised);
+  border-color: var(--hairline);
+}
+.mg-btn.t-danger:hover {
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-color: var(--danger-line);
+}
+
+.mg-btn.on {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+}
+.mg-btn.t-primary.on {
+  color: var(--accent-ink);
+  background: var(--accent-hi);
+}
+.mg-btn-l {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mg-spin {
+  animation: mg-spin 850ms linear infinite;
+}
+@keyframes mg-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ==================================================================
+   Toggle
+   ================================================================== */
+.mg-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 0;
+  border: 0;
+  border-radius: var(--r-ctl);
+  background: none;
+  color: var(--text-2);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: color var(--fast) var(--ease);
+}
+.mg-toggle:hover {
+  color: var(--text);
+}
+.mg-toggle[disabled] {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.mg-toggle-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mg-toggle-label {
+  font-size: var(--t-12);
+  font-weight: 500;
+}
+.mg-toggle-hint {
+  font-size: var(--t-11);
+  line-height: 1.45;
+  color: var(--text-3);
+}
+.mg-toggle-track {
+  position: relative;
+  flex: none;
+  width: 30px;
+  height: 17px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--hairline-2);
+  background: var(--sunken);
+  transition:
+    background var(--fast) var(--ease),
+    border-color var(--fast) var(--ease);
+}
+.mg-toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 11px;
+  height: 11px;
+  border-radius: var(--r-pill);
+  background: var(--text-3);
+  transition:
+    transform var(--fast) var(--ease),
+    background var(--fast) var(--ease);
+}
+.mg-toggle.on .mg-toggle-track {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+}
+.mg-toggle.on .mg-toggle-knob {
+  background: var(--accent);
+  transform: translateX(13px);
+}
+
+/* ==================================================================
+   Segmented
+   ================================================================== */
+.mg-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-ctl);
+  background: var(--sunken);
+}
+.mg-seg.block {
+  display: flex;
+  width: 100%;
+}
+.mg-seg-opt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 1;
+  height: 24px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-3);
+  font: inherit;
+  font-size: var(--t-12);
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color var(--fast) var(--ease),
+    background var(--fast) var(--ease);
+}
+.mg-seg.s-sm .mg-seg-opt {
+  height: 20px;
+  padding: 0 8px;
+  font-size: var(--t-11);
+}
+.mg-seg-opt.only {
+  padding: 0 8px;
+  flex: none;
+  min-width: 28px;
+}
+.mg-seg-opt:hover {
+  color: var(--text-2);
+  background: var(--hover);
+}
+.mg-seg-opt.on {
+  color: var(--text);
+  background: var(--raised-2);
+  box-shadow: inset 0 0 0 1px var(--hairline-2);
+}
+.mg-seg-opt[disabled] {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+/* ==================================================================
+   Slider
+   ================================================================== */
+.mg-slider {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  --mg-slider-accent: var(--accent);
+}
+.mg-slider.off {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.mg-slider-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.mg-slider-label {
+  font-size: var(--t-11);
+  letter-spacing: var(--ls-caps);
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--text-3);
+}
+.mg-slider-readout {
+  margin-left: auto;
+  font-size: var(--t-11);
+  color: var(--text-2);
+}
+.mg-slider-rail {
+  position: relative;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  border-radius: var(--r-pill);
+  touch-action: none;
+}
+.mg-slider-track,
+.mg-slider-fill {
+  position: absolute;
+  left: 0;
+  height: 3px;
+  border-radius: var(--r-pill);
+}
+.mg-slider-track {
+  right: 0;
+  background: var(--hairline-2);
+}
+.mg-slider-fill {
+  background: var(--mg-slider-accent);
+}
+.mg-slider-knob {
+  position: absolute;
+  width: 11px;
+  height: 11px;
+  margin-left: -5.5px;
+  border-radius: var(--r-pill);
+  background: var(--mg-slider-accent);
+  box-shadow: 0 0 0 3px var(--panel);
+  transition: transform var(--fast) var(--ease);
+}
+.mg-slider-rail:hover .mg-slider-knob {
+  transform: scale(1.18);
+}
+
+/* ==================================================================
+   Chip
+   ================================================================== */
+.mg-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 9px;
+  border: 1px solid var(--hairline-2);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--text-2);
+  font-family: var(--font-ui);
+  font-size: var(--t-11);
+  font-weight: 500;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.mg-chip.s-sm {
+  height: 19px;
+  padding: 0 7px;
+  font-size: var(--t-10);
+  gap: 5px;
+}
+.mg-chip-l {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mg-chip-sw {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex: none;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.4);
+}
+.mg-chip.act {
+  cursor: pointer;
+  transition:
+    color var(--fast) var(--ease),
+    background var(--fast) var(--ease),
+    border-color var(--fast) var(--ease);
+}
+.mg-chip.act:hover {
+  color: var(--text);
+  border-color: var(--hairline-3);
+  background: var(--hover);
+}
+.mg-chip.on {
+  color: var(--accent);
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+/* The anatomy-under-cursor glow: hairline turns accent (UI-OVERHAUL.md §2). */
+.mg-chip.glow {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-line);
+}
+.mg-chip.sev-ok {
+  color: var(--ok);
+  border-color: var(--ok-line);
+  background: var(--ok-soft);
+}
+.mg-chip.sev-caution {
+  color: var(--warn);
+  border-color: var(--warn-line);
+  background: var(--warn-soft);
+}
+.mg-chip.sev-danger {
+  color: var(--danger);
+  border-color: var(--danger-line);
+  background: var(--danger-soft);
+}
+.mg-chip.sev-node {
+  color: var(--node);
+  border-color: rgba(192, 132, 252, 0.38);
+  background: rgba(192, 132, 252, 0.1);
+}
+.mg-chip.sev-tumor {
+  color: var(--tumor);
+  border-color: rgba(226, 85, 161, 0.38);
+  background: rgba(226, 85, 161, 0.1);
+}
+.mg-chip.sev-info {
+  color: var(--accent);
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+.mg-sev-glyph {
+  flex: none;
+}
+
+/* ==================================================================
+   Pill
+   ================================================================== */
+.mg-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 19px;
+  padding: 0 8px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--hairline);
+  background: var(--raised);
+  color: var(--text-3);
+  font-family: var(--font-ui);
+  font-size: var(--t-10);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.mg-pill-l {
+  position: relative;
+  z-index: 1;
+}
+.mg-pill-bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--accent-soft);
+  transition: width var(--med) var(--ease);
+}
+.mg-pill.t-ok {
+  color: var(--ok);
+  border-color: var(--ok-line);
+  background: var(--ok-soft);
+}
+.mg-pill.t-warn {
+  color: var(--warn);
+  border-color: var(--warn-line);
+  background: var(--warn-soft);
+}
+.mg-pill.t-danger {
+  color: var(--danger);
+  border-color: var(--danger-line);
+  background: var(--danger-soft);
+}
+.mg-pill.t-accent {
+  color: var(--accent);
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+.mg-pill.t-muted {
+  color: var(--text-3);
+  border-color: transparent;
+  background: var(--hover);
+}
+
+/* ==================================================================
+   Field
+   ================================================================== */
+.mg-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mg-field.block {
+  width: 100%;
+}
+.mg-field-label {
+  font-size: var(--t-11);
+  letter-spacing: var(--ls-caps);
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--text-3);
+}
+.mg-field-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--h-field);
+  padding: 0 10px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-ctl);
+  background: var(--sunken);
+  transition: border-color var(--fast) var(--ease);
+}
+.mg-field-box:focus-within {
+  border-color: var(--accent-line);
+}
+.mg-field.err .mg-field-box {
+  border-color: var(--danger-line);
+}
+.mg-field-ico {
+  color: var(--text-3);
+  flex: none;
+}
+.mg-field-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: var(--t-13);
+  outline: none;
+}
+.mg-field-input.mono {
+  font-family: var(--font-mono);
+  font-size: var(--t-12);
+}
+.mg-field-input::placeholder {
+  color: var(--text-3);
+}
+/* The focus ring belongs to the box, not the bare input. */
+.mg-field-input:focus-visible {
+  box-shadow: none;
+}
+.mg-field-trail {
+  flex: none;
+  color: var(--text-3);
+  font-size: var(--t-11);
+}
+.mg-field-hint,
+.mg-field-err {
+  font-size: var(--t-11);
+  line-height: 1.5;
+  color: var(--text-3);
+}
+.mg-field-err {
+  color: var(--danger);
+}
+
+/* ==================================================================
+   Kbd
+   ================================================================== */
+.mg-kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 4px;
+  border: 1px solid var(--hairline-2);
+  background: var(--raised);
+  font-family: var(--font-mono);
+  font-size: var(--t-10);
+  font-style: normal;
+  color: var(--text-2);
+}
+
+/* ==================================================================
+   Tooltip
+   ================================================================== */
+.mg-tip-host {
+  position: relative;
+  display: inline-flex;
+}
+.mg-tip {
+  position: absolute;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 9px;
+  border-radius: var(--r-ctl);
+  border: 1px solid var(--hairline-2);
+  background: var(--raised);
+  box-shadow: var(--pop-shadow);
+  font-family: var(--font-ui);
+  font-size: var(--t-12);
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--fast) var(--ease);
+}
+.mg-tip.p-right {
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+.mg-tip.p-left {
+  right: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+.mg-tip.p-below {
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+.mg-tip.p-above {
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+.mg-tip-k {
+  font-size: var(--t-10);
+  color: var(--text-3);
+}
+.mg-tip-host:hover > .mg-tip,
+.mg-tip-host:focus-within > .mg-tip,
+*:hover > .mg-tip,
+*:focus-visible > .mg-tip {
+  opacity: 1;
+}
+
+/* ==================================================================
+   Tabs
+   ================================================================== */
+.mg-tabs {
+  display: flex;
+  align-items: stretch;
+  flex: none;
+  min-width: 0;
+}
+.mg-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  background: none;
+  color: var(--text-3);
+  font-family: var(--font-ui);
+  font-size: var(--t-12);
+  font-weight: 500;
+  letter-spacing: var(--ls-tight);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color var(--fast) var(--ease),
+    background var(--fast) var(--ease);
+}
+.mg-tab[disabled] {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.mg-tab-l {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mg-tab-count {
+  font-size: var(--t-10);
+  color: var(--text-3);
+}
+.mg-tab.on .mg-tab-count {
+  color: var(--accent);
+}
+.mg-tab-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+}
+
+/* underline cut — the right panel */
+.mg-tabs.v-underline {
+  height: 38px;
+  border-bottom: 1px solid var(--hairline);
+}
+.mg-tabs.v-underline .mg-tab {
+  flex: 1;
+  padding: 0 6px;
+}
+.mg-tabs.v-underline .mg-tab:hover {
+  color: var(--text-2);
+  background: var(--hover);
+}
+.mg-tabs.v-underline .mg-tab.on {
+  color: var(--text);
+}
+.mg-tabs.v-underline .mg-tab.on::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: var(--accent);
+}
+
+/* solid cut — the top-bar workspaces */
+.mg-tabs.v-solid {
+  gap: 2px;
+  padding: 3px;
+  border-radius: 8px;
+  background: var(--sunken);
+  border: 1px solid var(--hairline);
+}
+.mg-tabs.v-solid .mg-tab {
+  height: 26px;
+  padding: 0 12px;
+  border-radius: 5px;
+}
+.mg-tabs.v-solid .mg-tab:hover {
+  color: var(--text-2);
+  background: var(--hover);
+}
+.mg-tabs.v-solid .mg-tab.on {
+  color: var(--text);
+  background: var(--raised-2);
+  box-shadow: inset 0 0 0 1px var(--hairline-2);
+}
+.mg-tabpanel {
+  display: contents;
+}
+
+/* ==================================================================
+   Tile — the evidence tile
+   ================================================================== */
+.mg-tile-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.mg-tile-row > .mg-tile {
+  flex: 1 1 96px;
+}
+.mg-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px 11px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  background: var(--raised);
+  color: var(--text-2);
+  text-align: left;
+  min-width: 0;
+}
+.mg-tile.act {
+  cursor: pointer;
+  transition:
+    border-color var(--fast) var(--ease),
+    background var(--fast) var(--ease);
+}
+.mg-tile.act:hover {
+  border-color: var(--hairline-3);
+  background: var(--raised-2);
+}
+.mg-tile-num {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  font-size: var(--t-28);
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.mg-tile.s-sm .mg-tile-num {
+  font-size: var(--t-22);
+}
+.mg-tile.s-lg .mg-tile-num {
+  font-size: var(--t-40);
+}
+.mg-tile-unit {
+  font-size: var(--t-13);
+  font-weight: 400;
+  color: var(--text-3);
+}
+.mg-tile.s-lg .mg-tile-unit {
+  font-size: var(--t-15);
+}
+.mg-tile-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-ui);
+  font-size: var(--t-11);
+  font-weight: 500;
+  color: var(--text-3);
+}
+.mg-tile-sub {
+  font-size: var(--t-10);
+  color: var(--text-3);
+  opacity: 0.85;
+}
+.mg-tile.sev-ok .mg-tile-num,
+.mg-tile.sev-ok .mg-tile-label {
+  color: var(--ok);
+}
+.mg-tile.sev-caution .mg-tile-num,
+.mg-tile.sev-caution .mg-tile-label {
+  color: var(--warn);
+}
+.mg-tile.sev-danger .mg-tile-num,
+.mg-tile.sev-danger .mg-tile-label {
+  color: var(--danger);
+}
+.mg-tile.sev-node .mg-tile-num,
+.mg-tile.sev-node .mg-tile-label {
+  color: var(--node);
+}
+.mg-tile.sev-tumor .mg-tile-num,
+.mg-tile.sev-tumor .mg-tile-label {
+  color: var(--tumor);
+}
+
+/* ==================================================================
+   Popover
+   ================================================================== */
+.mg-pop-anchor {
+  position: relative;
+  display: inline-flex;
+}
+.mg-pop {
+  position: absolute;
+  z-index: 95;
+  min-width: 210px;
+  padding: 5px;
+  border: 1px solid var(--hairline-2);
+  border-radius: 8px;
+  background: var(--raised);
+  box-shadow: var(--pop-shadow);
+  animation: mg-pop-in var(--fast) var(--ease);
+}
+@keyframes mg-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+}
+.mg-pop.below {
+  top: calc(100% + 6px);
+  left: 0;
+}
+.mg-pop.below-right {
+  top: calc(100% + 6px);
+  right: 0;
+}
+.mg-pop.above {
+  bottom: calc(100% + 6px);
+  left: 0;
+}
+.mg-pop.side {
+  left: calc(100% + 8px);
+  top: 0;
+}
+.mg-pop-label {
+  padding: 6px 9px 5px;
+  font-size: var(--t-10);
+  letter-spacing: var(--ls-caps);
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--text-3);
+}
+.mg-pop-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--t-12);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    color var(--fast) var(--ease),
+    background var(--fast) var(--ease);
+}
+.mg-pop-item:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+.mg-pop-item.on {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.mg-pop-item[disabled] {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.mg-pop-item .main {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mg-pop-item .sub {
+  font-family: var(--font-mono);
+  font-size: var(--t-10);
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+/* ==================================================================
+   Scrim / Modal / Drawer
+   ================================================================== */
+.mg-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: var(--scrim);
+  backdrop-filter: blur(2px);
+  display: flex;
+  justify-content: center;
+  animation: mg-fade var(--fast) var(--ease);
+}
+.mg-scrim.center {
+  align-items: center;
+}
+.mg-scrim.top {
+  align-items: flex-start;
+  padding-top: 11vh;
+}
+@keyframes mg-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.mg-modal {
+  width: min(92vw, 520px);
+  max-height: 84vh;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--hairline-2);
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: var(--pop-shadow);
+  animation: mg-rise var(--med) var(--ease);
+}
+.mg-modal.s-lg {
+  width: min(94vw, 780px);
+}
+.mg-modal.s-xl {
+  width: min(96vw, 980px);
+}
+@keyframes mg-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.mg-modal-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 14px 12px 18px;
+  border-bottom: 1px solid var(--hairline);
+}
+.mg-modal-title {
+  font-size: var(--t-15);
+  font-weight: 600;
+  letter-spacing: var(--ls-tight);
+  color: var(--text);
+}
+.mg-modal-sub {
+  margin-top: 4px;
+  font-size: var(--t-12);
+  line-height: 1.55;
+  color: var(--text-3);
+}
+.mg-modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 18px;
+}
+.mg-modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 18px 14px;
+  border-top: 1px solid var(--hairline);
+}
+
+.mg-drawer {
+  width: var(--drawer-w);
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--panel);
+  border-left: 1px solid var(--hairline);
+  box-shadow: var(--drawer-shadow);
+  animation: mg-slide var(--med) var(--ease);
+}
+@keyframes mg-slide {
+  from {
+    transform: translateX(16px);
+    opacity: 0;
+  }
+}
+.mg-drawer-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  padding: 11px 10px 11px 16px;
+  border-bottom: 1px solid var(--hairline);
+}
+.mg-drawer-titles {
+  flex: 1;
+  min-width: 0;
+}
+.mg-drawer-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--t-13);
+  font-weight: 600;
+  letter-spacing: var(--ls-tight);
+  color: var(--text);
+}
+.mg-drawer-sub {
+  margin-top: 2px;
+  font-size: var(--t-11);
+  color: var(--text-3);
+}
+.mg-drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.mg-drawer-foot {
+  flex: none;
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--hairline);
+  background: var(--panel);
+}
+
+/* ==================================================================
+   Palette
+   ================================================================== */
+.mg-palette {
+  width: min(94vw, 620px);
+  max-height: 66vh;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--hairline-2);
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: var(--pop-shadow);
+  overflow: hidden;
+  animation: mg-rise var(--med) var(--ease);
+}
+.mg-palette-input {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  flex: none;
+  padding: 0 14px;
+  height: 52px;
+  border-bottom: 1px solid var(--hairline);
+  color: var(--text-3);
+}
+.mg-palette-input input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  outline: none;
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: var(--t-15);
+  letter-spacing: var(--ls-tight);
+}
+.mg-palette-input input::placeholder {
+  color: var(--text-3);
+}
+/* The palette is a focus trap of one; a ring round the whole field shouts. */
+.mg-palette-input input:focus-visible {
+  box-shadow: none;
+}
+.mg-palette-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px;
+}
+.mg-palette-group {
+  padding: 10px 10px 5px;
+  font-size: var(--t-10);
+  letter-spacing: var(--ls-caps);
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--text-3);
+}
+.mg-palette-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--t-13);
+  text-align: left;
+  cursor: pointer;
+}
+.mg-palette-item .main {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mg-palette-item .detail {
+  font-size: var(--t-11);
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.mg-palette-item.cur {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+.mg-palette-item.cur .detail {
+  color: var(--accent);
+}
+.mg-palette-sw {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: none;
+}
+.mg-palette-empty {
+  padding: 30px 16px;
+  text-align: center;
+  font-size: var(--t-12);
+  color: var(--text-3);
+}
+.mg-palette-foot {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: none;
+  padding: 8px 14px;
+  border-top: 1px solid var(--hairline);
+  font-size: var(--t-11);
+  color: var(--text-3);
+}
+.mg-palette-foot > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.mg-palette-count {
+  margin-left: auto;
+}
+
+/* ==================================================================
+   Toast / Banner
+   ================================================================== */
+.mg-toasts {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--status-h) + 14px);
+  transform: translateX(-50%);
+  z-index: 300;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  pointer-events: none;
+}
+.mg-toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 560px;
+  padding: 9px 8px 9px 13px;
+  border: 1px solid var(--hairline-2);
+  border-radius: 10px;
+  background: var(--raised);
+  box-shadow: var(--pop-shadow);
+  pointer-events: auto;
+  animation: mg-toast-in var(--med) var(--ease);
+}
+@keyframes mg-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.mg-toast-ico {
+  display: grid;
+  place-items: center;
+  flex: none;
+  color: var(--text-3);
+}
+.mg-toast.k-ok .mg-toast-ico {
+  color: var(--ok);
+}
+.mg-toast.k-err .mg-toast-ico {
+  color: var(--danger);
+}
+.mg-toast.k-info .mg-toast-ico {
+  color: var(--accent);
+}
+.mg-toast.k-busy .mg-toast-ico {
+  color: var(--accent);
+}
+.mg-toast.k-err {
+  border-color: var(--danger-line);
+}
+.mg-toast-text {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  min-width: 0;
+  flex: 1;
+}
+.mg-toast-title {
+  font-size: var(--t-12);
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+}
+.mg-toast-msg {
+  font-size: var(--t-11);
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mg-toast-action {
+  flex: none;
+  height: 22px;
+  padding: 0 9px;
+  border: 1px solid var(--hairline-2);
+  border-radius: 5px;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--t-11);
+  font-weight: 500;
+  cursor: pointer;
+}
+.mg-toast-action:hover {
+  background: var(--accent-soft);
+}
+.mg-toast-close {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.mg-toast-close:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+
+.mg-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 10px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-ctl);
+  background: var(--raised);
+  color: var(--text-2);
+  font-size: var(--t-12);
+  line-height: 1.55;
+}
+.mg-banner-body {
+  flex: 1;
+  min-width: 0;
+}
+.mg-banner.k-info {
+  color: var(--text-2);
+}
+.mg-banner.k-ok {
+  color: var(--ok);
+  border-color: var(--ok-line);
+  background: var(--ok-soft);
+}
+.mg-banner.k-warn {
+  color: var(--warn);
+  border-color: var(--warn-line);
+  background: var(--warn-soft);
+}
+.mg-banner.k-err {
+  color: var(--danger);
+  border-color: var(--danger-line);
+  background: var(--danger-soft);
+}
+
+/* ==================================================================
+   Scrubber
+   ================================================================== */
+.mg-scrub {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 14px;
+  z-index: 8;
+  display: flex;
+  align-items: flex-end;
+  cursor: ew-resize;
+  touch-action: none;
+  --mg-scrub-accent: var(--plane, var(--accent));
+}
+.mg-scrub-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  transition:
+    height var(--fast) var(--ease),
+    background var(--fast) var(--ease);
+}
+.mg-scrub:hover .mg-scrub-track {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.14);
+}
+.mg-scrub-fill {
+  height: 100%;
+  background: var(--mg-scrub-accent);
+  opacity: 0.8;
+}
+.mg-scrub-ticks {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  width: 100%;
+  color: rgba(255, 255, 255, 0.22);
+  pointer-events: none;
+}
+.mg-scrub-mark {
+  position: absolute;
+  bottom: 0;
+  width: 2px;
+  height: 9px;
+  margin-left: -1px;
+  border-radius: 1px;
+  pointer-events: none;
+  transition:
+    height var(--fast) var(--ease),
+    width var(--fast) var(--ease);
+}
+.mg-scrub-mark.hot {
+  width: 3px;
+  height: 13px;
+}
+.mg-scrub-head {
+  position: absolute;
+  bottom: 0;
+  width: 1px;
+  height: 11px;
+  margin-left: -0.5px;
+  background: var(--text);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--fast) var(--ease);
+}
+.mg-scrub:hover .mg-scrub-head {
+  opacity: 0.85;
+}
+.mg-scrub-tip {
+  position: absolute;
+  bottom: 16px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 260px;
+  padding: 3px 7px;
+  border-radius: 5px;
+  background: var(--raised);
+  border: 1px solid var(--hairline-2);
+  font-family: var(--font-ui);
+  font-size: var(--t-11);
+  color: var(--text);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 3;
+}
+.mg-scrub-tip.mark {
+  border-color: var(--mg-scrub-tip, var(--hairline-2));
+}
+.mg-scrub-tip .t {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mg-scrub-tip .n {
+  font-family: var(--font-mono);
+  font-size: var(--t-10);
+  color: var(--text-3);
+}
+
+/* ==================================================================
+   MarginMark
+   ================================================================== */
+.mark {
+  display: block;
+  color: var(--accent);
+}
+.mark-sweep {
+  fill: none;
+  transition: stroke-dasharray var(--med) var(--ease);
+}
+/* Indeterminate: the margin contour sweeps once every 1.2 s (§4). */
+.mark-sweep.indet {
+  animation: mg-mark-sweep var(--mark-loop) var(--ease) infinite;
+}
+@keyframes mg-mark-sweep {
+  0% {
+    stroke-dashoffset: 47.2;
+    opacity: 0.35;
+  }
+  45% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: -47.2;
+    opacity: 0.35;
+  }
+}
+/* The tumour breathes while the margin is still unknown. */
+.mark.busy .mark-blob {
+  animation: mg-mark-pulse var(--mark-loop) var(--ease) infinite;
+}
+@keyframes mg-mark-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ==================================================================
+   Shared scaffolding used across panels
+   ================================================================== */
+.mg-section {
+  padding: 13px 14px 5px;
+  font-size: var(--t-10);
+  letter-spacing: var(--ls-caps);
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mg-section > .sp {
+  flex: 1;
+}
+.mg-card {
+  margin: 8px 12px;
+  padding: 12px 13px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  background: var(--raised);
+}
+.mg-empty {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--text-3);
+  font-size: var(--t-12);
+  line-height: 1.6;
+}
+.mg-empty h3 {
+  margin: 0;
+  font-size: var(--t-15);
+  font-weight: 600;
+  color: var(--text-2);
+  letter-spacing: var(--ls-tight);
+}
+.mg-empty p {
+  margin: 0;
+  max-width: 44ch;
+}
+.mg-empty .mg-empty-ico {
+  color: var(--text-3);
+  opacity: 0.55;
+}
+.mg-hairline {
+  height: 1px;
+  background: var(--hairline);
+  margin: 6px 0;
+}

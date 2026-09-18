@@ -72,9 +72,50 @@ class Boundary extends Component<{ children: ReactNode }, { error: Error | null 
 const root = document.getElementById('root');
 if (!root) throw new Error('#root is missing from index.html');
 
+/**
+ * Dev-only debug handle.
+ *
+ * Exposed so the UI can be driven from the console and from the headless
+ * capture script in tools/ (CLAUDE.md sanctions headless Chrome against
+ * 127.0.0.1:5173 as the only allowed way to verify the interface). Stripped
+ * from production builds by the `import.meta.env.DEV` guard.
+ */
+if (import.meta.env.DEV) {
+  void Promise.all([
+    import('./store/useAppStore'),
+    import('./viewer/ViewerCore'),
+    import('./labels/structureStore'),
+    import('./tools/carotid'),
+    import('./tools/airway'),
+  ]).then(([store, core, labels, carotid, airway]) => {
+    (window as unknown as Record<string, unknown>).__margin = {
+      store: store.useAppStore,
+      viewer: core.viewer,
+      structures: labels.useStructureStore,
+      quickAdd: labels.quickAdd,
+      carotid: carotid.carotid,
+      carotidStore: carotid.useCarotidStore,
+      airway: airway.airway,
+      airwayStore: airway.useAirwayStore,
+    };
+  });
+}
+
 // NOTE: no StrictMode. Its double-invoked effects tear down and rebuild the
 // WebGL rendering engine on every mount, which Cornerstone3D does not enjoy.
-createRoot(root).render(
+/**
+ * Keep one root across hot reloads. Vite re-executes this module when it or
+ * anything it owns changes, and a second `createRoot` on the same container
+ * warns and leaves two React trees fighting over the Cornerstone canvases.
+ */
+interface RootHolder {
+  __marginRoot?: ReturnType<typeof createRoot>;
+}
+const holder = window as unknown as RootHolder;
+const reactRoot = holder.__marginRoot ?? createRoot(root);
+holder.__marginRoot = reactRoot;
+
+reactRoot.render(
   <Boundary>
     <App />
   </Boundary>,

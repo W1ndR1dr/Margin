@@ -47,6 +47,22 @@ export interface Series {
   orientation: number[] | null;
   is_multiframe: boolean;
   is_3d: boolean;
+
+  /* ---- optional MR/enrichment fields (backend adds these; may be absent) ---- */
+  /** 't1' | 't1c' | 't2' | 'stir' | 'flair' | 'dwi' | 'adc' | 'ct' | ... */
+  sequence_kind?: string | null;
+  frame_of_reference_uid?: string | null;
+  /** MR acquisition parameters when the indexer exposes them. */
+  echo_time?: number | null;
+  repetition_time?: number | null;
+  inversion_time?: number | null;
+  scanning_sequence?: string | null;
+  sequence_variant?: string | null;
+  contrast_agent?: string | null;
+  /** 'axial' | 'sagittal' | 'coronal' | 'oblique' when the backend derives it. */
+  acquired_plane?: string | null;
+  window_width?: number | null;
+  window_center?: number | null;
 }
 
 export interface Instance {
@@ -57,6 +73,31 @@ export interface Instance {
 }
 
 export type SeriesDetail = Series & { instances: Instance[] };
+
+/**
+ * `GET /api/series/{uid}/window` — modality-aware default windowing.
+ * The route is being added by the backend team; a 404 is a first-class state
+ * and the viewer computes percentiles client-side instead.
+ */
+export interface SeriesWindow {
+  /**
+   * The display range, which the backend reports as bounds rather than as a
+   * width/centre pair. Both forms are accepted: `lower`/`upper` is what the
+   * route actually returns, `ww`/`wc` is kept so a future backend (or a test
+   * double) can send the radiology-native form without a client change.
+   */
+  lower?: number;
+  upper?: number;
+  ww?: number;
+  wc?: number;
+  /** How it was derived, e.g. 'ct-fixed-w350-l40', 'dicom', 'percentile'. */
+  method?: string;
+  source?: string;
+  computed_at?: number;
+  cached?: boolean;
+  modality?: string | null;
+  sequence_kind?: string | null;
+}
 
 export interface ImportResult {
   patients: number;
@@ -139,6 +180,10 @@ export const api = {
 
   thumbnailUrl: (seriesUid: string) =>
     `/api/series/${encodeURIComponent(seriesUid)}/thumbnail`,
+
+  /** Modality-aware window. Throws ApiError(404) until the backend ships it. */
+  seriesWindow: (seriesUid: string) =>
+    req<SeriesWindow>(`/api/series/${encodeURIComponent(seriesUid)}/window`, { timeoutMs: 20_000 }),
 
   importFolder: (path?: string) =>
     req<ImportResult>('/api/import', {

@@ -1,68 +1,88 @@
-import {
-  Box,
-  Brush,
-  Camera,
-  Circle,
-  Columns2,
-  Contrast,
-  Pause,
-  Play,
-  Crosshair,
-  Grid2x2,
-  Hand,
-  Lasso,
-  MoveDiagonal,
-  MoveVertical,
-  Pipette,
-  RotateCcw,
-  Ruler,
-  Square,
-  Triangle,
-  Waypoints,
-  Wind,
-  ZoomIn,
-  type LucideIcon,
-} from 'lucide-react';
+/**
+ * The 52 px left rail (UI-OVERHAUL.md §3).
+ *
+ *   navigate · measure · head & neck tools · layout / snapshot
+ *
+ * "active tool on --raised with accent icon; tooltip 'Name · key'". The active
+ * icon switches to Phosphor's fill cut, so the state reads at a glance without
+ * a second colour. Clinical tools carry Health Icons; anything with no fitting
+ * icon carries a short text label rather than a homemade glyph (Brian's rule).
+ */
 import { useAppStore, type GridMode } from '../store/useAppStore';
 import { carotid, useCarotidStore } from '../tools/carotid';
 import { airway, useAirwayStore } from '../tools/airway';
 import { RAIL_TOOLS, viewer } from '../viewer/ViewerCore';
-import { VOLUME_PRESETS } from '../viewer/presets';
-import { Popover, PopItem, Tip } from './ui';
+import { volumePresetsFor } from '../viewer/presets';
+import { Icon, PopItem, Popover, WithTooltip, type IconName } from '../ui';
 
-const TOOL_ICON: Record<string, LucideIcon> = {
-  WindowLevel: Contrast,
-  Pan: Hand,
-  Zoom: ZoomIn,
-  StackScroll: MoveVertical,
-  Crosshairs: Crosshair,
-  Length: Ruler,
-  Bidirectional: MoveDiagonal,
-  Angle: Triangle,
-  EllipticalROI: Circle,
-  RectangleROI: Square,
-  PlanarFreehandROI: Lasso,
-  Probe: Pipette,
+/** Rail tool name -> icon. Every RAIL_TOOLS entry must appear here. */
+const TOOL_ICON: Record<string, IconName> = {
+  WindowLevel: 'windowLevel',
+  Pan: 'pan',
+  Zoom: 'zoom',
+  StackScroll: 'scroll',
+  Crosshairs: 'crosshair',
+  Length: 'length',
+  Bidirectional: 'bidirectional',
+  Angle: 'angle',
+  EllipticalROI: 'ellipseRoi',
+  RectangleROI: 'rectangleRoi',
+  PlanarFreehandROI: 'freehandRoi',
+  Probe: 'probe',
 };
 
-/** Head & neck tools still on the roadmap; they carry their version instead. */
-const HN_TOOLS: Array<{ id: string; label: string; key: string; icon: LucideIcon; when: string }> = [
-  { id: 'node', label: 'Node level', key: 'N', icon: Circle, when: 'v0.3' },
-  { id: 'mandible', label: 'Mandible planner', key: 'M', icon: Box, when: 'v0.4' },
+const GRIDS: Array<{ id: GridMode; label: string; icon: IconName }> = [
+  { id: 'strip', label: 'Primary + context strip', icon: 'layoutStrip' },
+  { id: '2x2', label: 'Quad MPR + 3D', icon: 'layoutQuad' },
+  { id: '1x1', label: 'Single viewport', icon: 'layoutSingle' },
 ];
 
-const GRIDS: Array<{ id: GridMode; label: string; icon: LucideIcon }> = [
-  { id: '1x1', label: 'Single', icon: Square },
-  { id: '1x2', label: 'Side by side', icon: Columns2 },
-  { id: '2x2', label: 'Quad MPR + 3D', icon: Grid2x2 },
+/** Head & neck tools still on the roadmap; they carry their version. */
+const SOON: Array<{ id: string; label: string; key: string; icon: IconName; when: string }> = [
+  { id: 'node', label: 'Node level', key: 'N', icon: 'node', when: 'v0.3' },
+  { id: 'mandible', label: 'Mandible planner', key: 'M', icon: 'tooth', when: 'v0.4' },
 ];
+
+function RailButton({
+  icon,
+  label,
+  hotkey,
+  on,
+  disabled,
+  onClick,
+  text,
+}: {
+  icon?: IconName;
+  label: string;
+  hotkey?: string;
+  on?: boolean;
+  disabled?: boolean;
+  onClick?: () => void;
+  /** Shown instead of an icon when no icon in either set fits the tool. */
+  text?: string;
+}) {
+  return (
+    <WithTooltip label={label} hotkey={hotkey}>
+      <button
+        type="button"
+        className={`rail-btn${on ? ' on' : ''}`}
+        disabled={disabled}
+        onClick={onClick}
+        aria-label={label}
+        aria-pressed={on}
+      >
+        {icon ? <Icon name={icon} size={20} weight={on ? 'fill' : 'regular'} /> : <span className="rail-text">{text}</span>}
+      </button>
+    </WithTooltip>
+  );
+}
 
 export function ToolRail({ onScreenshot }: { onScreenshot: () => void }) {
   const activeTool = useAppStore((s) => s.activeTool);
   const layout = useAppStore((s) => s.layout);
   const grid = useAppStore((s) => s.grid);
   const volumePresetId = useAppStore((s) => s.volumePresetId);
-  const panelTab = useAppStore((s) => s.panelTab);
+  const modality = useAppStore((s) => s.activeSeries?.modality);
   const cine = useAppStore((s) => s.cine);
   const carotidPhase = useCarotidStore((s) => s.phase);
   const airwayPhase = useAirwayStore((s) => s.phase);
@@ -70,28 +90,24 @@ export function ToolRail({ onScreenshot }: { onScreenshot: () => void }) {
   const set = useAppStore((s) => s.set);
 
   const idle = layout === 'none';
+  const mpr = layout === 'mpr';
   const navigate = RAIL_TOOLS.filter((t) => t.group === 'navigate');
   const measure = RAIL_TOOLS.filter((t) => t.group === 'measure');
 
-  const renderTool = (name: string, label: string, key: string, mprOnly?: boolean) => {
-    const Icon = TOOL_ICON[name] ?? Crosshair;
-    const disabled = idle || (mprOnly === true && layout !== 'mpr');
-    return (
-      <button
-        key={name}
-        className={`rail-btn${activeTool === name ? ' on' : ''}`}
-        disabled={disabled}
-        onClick={() => viewer.setActiveTool(name)}
-        aria-label={label}
-      >
-        <Icon size={18} strokeWidth={1.5} />
-        <Tip label={label} hotkey={key.toUpperCase()} />
-      </button>
-    );
-  };
+  const renderTool = (name: string, label: string, key: string, mprOnly?: boolean) => (
+    <RailButton
+      key={name}
+      icon={TOOL_ICON[name] ?? 'crosshair'}
+      label={label}
+      hotkey={key.toUpperCase()}
+      on={activeTool === name}
+      disabled={idle || (mprOnly === true && !mpr)}
+      onClick={() => viewer.setActiveTool(name)}
+    />
+  );
 
   return (
-    <aside className="rail">
+    <aside className="rail" aria-label="Tools">
       {navigate.map((t) => renderTool(t.name, t.label, t.key, t.mprOnly))}
 
       <div className="rail-sep" />
@@ -100,79 +116,63 @@ export function ToolRail({ onScreenshot }: { onScreenshot: () => void }) {
 
       <div className="rail-sep" />
 
-      <button
-        className={`rail-btn${carotidPhase !== 'idle' ? ' on' : ''}`}
-        disabled={layout !== 'mpr'}
+      {/* head & neck — Health Icons */}
+      <RailButton
+        icon="vessel"
+        label="Carotid encasement"
+        hotkey="C"
+        on={carotidPhase !== 'idle'}
+        disabled={!mpr}
         onClick={() => carotid.start()}
-        aria-label="Carotid encasement"
-      >
-        <Waypoints size={18} strokeWidth={1.5} />
-        <Tip label="Carotid encasement" hotkey="C" />
-      </button>
-
-      <button
-        className={`rail-btn${airwayPhase !== 'idle' ? ' on' : ''}`}
-        disabled={layout !== 'mpr'}
+      />
+      <RailButton
+        icon="airway"
+        label="Airway patency"
+        hotkey="Y"
+        on={airwayPhase !== 'idle'}
+        disabled={!mpr}
         onClick={() => airway.start()}
-        aria-label="Airway analyser"
-      >
-        <Wind size={18} strokeWidth={1.5} />
-        <Tip label="Airway analyser" hotkey="Y" />
-      </button>
-
-      <button
-        className={`rail-btn${structuresMenuOpen ? ' on' : ''}`}
-        disabled={layout !== 'mpr'}
+      />
+      <RailButton
+        icon="selection"
+        label="Segment · quick menu"
+        hotkey="G"
+        on={structuresMenuOpen}
+        disabled={!mpr}
         onClick={() => set({ structuresMenuOpen: !structuresMenuOpen })}
-        aria-label="Segment"
-      >
-        <Brush size={18} strokeWidth={1.5} />
-        <Tip label="Segment · quick menu" hotkey="G" />
-      </button>
-
-      {HN_TOOLS.map((t) => (
-        <button
-          key={t.id}
-          className="rail-btn"
-          disabled
-          title={`${t.label} · ${t.when}`}
-          onClick={() => set({ panelTab: 'tools' })}
-          aria-label={t.label}
-        >
-          <t.icon size={18} strokeWidth={1.5} />
-          <Tip label={`${t.label} · ${t.when}`} hotkey={t.key} />
-        </button>
+      />
+      {SOON.map((t) => (
+        <RailButton key={t.id} icon={t.icon} label={`${t.label} · ${t.when}`} hotkey={t.key} disabled />
       ))}
 
       <div className="rail-sep" />
 
       {GRIDS.map((g) => (
-        <button
+        <RailButton
           key={g.id}
-          className={`rail-btn${grid === g.id && !idle ? ' on' : ''}`}
-          disabled={idle || layout !== 'mpr'}
+          icon={g.icon}
+          label={g.label}
+          on={grid === g.id && !idle}
+          disabled={idle || !mpr}
           onClick={() => set({ grid: g.id, maximized: null })}
-          aria-label={g.label}
-        >
-          <g.icon size={18} strokeWidth={1.5} />
-          <Tip label={g.label} />
-        </button>
+        />
       ))}
 
       <Popover
         placement="side"
-        disabled={layout !== 'mpr'}
+        disabled={!mpr}
         trigger={() => (
-          <button className="rail-btn" disabled={layout !== 'mpr'} aria-label="3D presets">
-            <Box size={18} strokeWidth={1.5} />
-            <Tip label="3D presets" />
-          </button>
+          <WithTooltip label="3D presets">
+            <button type="button" className="rail-btn" disabled={!mpr} aria-label="3D presets">
+              <Icon name="volume3d" size={20} />
+            </button>
+          </WithTooltip>
         )}
       >
         {(close) => (
           <>
-            <div className="pop-label">Volume rendering</div>
-            {VOLUME_PRESETS.map((p) => (
+            <div className="mg-pop-label">Volume rendering</div>
+            {volumePresetsFor(modality).map((p) => (
               <PopItem
                 key={p.id}
                 on={p.id === volumePresetId}
@@ -188,43 +188,24 @@ export function ToolRail({ onScreenshot }: { onScreenshot: () => void }) {
         )}
       </Popover>
 
-      <button
-        className={`rail-btn${cine ? ' on' : ''}`}
+      <RailButton
+        icon={cine ? 'pause' : 'play'}
+        label={cine ? 'Stop cine' : 'Cine loop'}
+        hotkey="Space"
+        on={cine}
         disabled={idle}
         onClick={() => viewer.toggleCine(!cine)}
-        aria-label="Cine loop"
-      >
-        {cine ? <Pause size={18} strokeWidth={1.5} /> : <Play size={18} strokeWidth={1.5} />}
-        <Tip label={cine ? 'Stop cine' : 'Cine loop'} hotkey="Space" />
-      </button>
-      <button className="rail-btn" disabled={idle} onClick={() => viewer.resetViews()} aria-label="Reset">
-        <RotateCcw size={18} strokeWidth={1.5} />
-        <Tip label="Reset views" hotkey="R" />
-      </button>
-      <button className="rail-btn" disabled={idle} onClick={onScreenshot} aria-label="Snapshot">
-        <Camera size={18} strokeWidth={1.5} />
-        <Tip label="Snapshot PNG" hotkey="K" />
-      </button>
+      />
+      <RailButton icon="reset" label="Reset views" hotkey="R" disabled={idle} onClick={() => viewer.resetViews()} />
+      <RailButton icon="snapshot" label="Snapshot PNG" hotkey="K" disabled={idle} onClick={onScreenshot} />
 
-      <div className="spacer" />
+      <div className="rail-spacer" />
 
-      <button
-        className={`rail-btn${panelTab === 'report' ? ' on' : ''}`}
-        onClick={() => set({ panelTab: 'report', panelOpen: true })}
-        aria-label="Report"
-      >
-        <ReportGlyph />
-        <Tip label="Report" />
-      </button>
+      <RailButton
+        icon="report"
+        label="Report"
+        onClick={() => set({ panelTab: 'report', panelOpen: true, askOpen: false })}
+      />
     </aside>
-  );
-}
-
-function ReportGlyph() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
-      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" strokeLinejoin="round" />
-      <path d="M14 3v5h5M9 13h6M9 17h4" strokeLinecap="round" />
-    </svg>
   );
 }

@@ -95,10 +95,16 @@ function isAxial(normal: number[] | undefined): boolean {
   return Math.abs(normal[2]) >= AXIAL_DOT;
 }
 
+/**
+ * The axial slice the tool is anchored to. Read from the store rather than
+ * from `getSliceIndex()`, because the store's value is the one derived from
+ * the camera (see ViewerCore.sliceIndexFromCamera) and is therefore the slice
+ * actually on screen after a jump.
+ */
 function axialSlice(): number | null {
-  const vp = viewer.getViewport('axial') as (Types.IViewport & { getSliceIndex?: () => number }) | null;
-  const i = vp?.getSliceIndex?.();
-  return typeof i === 'number' && Number.isFinite(i) ? i : null;
+  const pane = useAppStore.getState().panes.axial;
+  if (pane.total <= 0) return null;
+  return Number.isFinite(pane.slice) ? pane.slice : null;
 }
 
 /** Circle radius in world mm from the [centre, top, bottom, left, right] handles. */
@@ -152,7 +158,14 @@ class CarotidTool {
       result: null,
       added: false,
     });
-    app.set({ panelTab: 'tools', panelOpen: true, activePane: 'axial', screen: 'view' });
+    app.set({
+      panelTab: 'structures',
+      panelOpen: true,
+      askOpen: false,
+      activePane: 'axial',
+      primaryPane: 'axial',
+      screen: 'read',
+    });
     this.bind();
     viewer.setActiveTool('CircleROI');
   }

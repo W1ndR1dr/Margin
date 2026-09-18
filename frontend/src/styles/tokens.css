@@ -1,7 +1,12 @@
 /* ------------------------------------------------------------------
-   Margin — design tokens (see DESIGN.md).
+   Margin — design tokens (DESIGN.md + UI-OVERHAUL.md §4).
+
    Viewports are the hero and the darkest thing on screen; chrome is one
-   step lighter; panels one more. Colour is reserved for data.
+   step lighter; panels one more. Colour is reserved for data: the only
+   things allowed to be coloured are anatomy, severity and the one accent.
+
+   Nothing in the app hard-codes a colour. If a component needs a new
+   shade it gets a token here first.
    ------------------------------------------------------------------ */
 :root {
   /* surfaces ------------------------------------------------------ */
@@ -9,25 +14,35 @@
   --panel: #111419;
   --raised: #181c23;
   --raised-2: #1e232b;
+  --sunken: #070910;
   --hairline: rgba(255, 255, 255, 0.08);
   --hairline-2: rgba(255, 255, 255, 0.14);
+  --hairline-3: rgba(255, 255, 255, 0.22);
   --hover: rgba(255, 255, 255, 0.05);
   --press: rgba(255, 255, 255, 0.09);
-  --scrim: rgba(6, 8, 11, 0.72);
+  --scrim: rgba(6, 8, 11, 0.74);
 
   /* ink ----------------------------------------------------------- */
   --text: #e8ecf1;
   --text-2: #9aa4b2;
-  --text-3: #5c6675;
+  /* UI-OVERHAUL.md §4: lightened from #5C6675 for contrast on --panel. */
+  --text-3: #6b7684;
 
   /* signal -------------------------------------------------------- */
   --accent: #2dd4bf;
+  --accent-hi: #5eead4;
   --accent-ink: #04342c;
   --accent-soft: rgba(45, 212, 191, 0.13);
   --accent-line: rgba(45, 212, 191, 0.4);
   --warn: #f5a524;
+  --warn-soft: rgba(245, 165, 36, 0.1);
+  --warn-line: rgba(245, 165, 36, 0.38);
   --danger: #f0554f;
+  --danger-soft: rgba(240, 85, 79, 0.1);
+  --danger-line: rgba(240, 85, 79, 0.38);
   --ok: #4ade80;
+  --ok-soft: rgba(74, 222, 128, 0.1);
+  --ok-line: rgba(74, 222, 128, 0.34);
 
   /* anatomy ------------------------------------------------------- */
   --tumor: #e255a1;
@@ -37,6 +52,8 @@
   --bone: #e9e4d6;
   --airway: #7dd3fc;
   --nerve: #fde68a;
+  --gland: #5eead4;
+  --muscle: #fb923c;
 
   /* plane identity (MPR reference lines + viewport ticks) ---------- */
   --plane-ax: #7dd3fc;
@@ -45,39 +62,55 @@
   --plane-3d: #2dd4bf;
 
   /* type ---------------------------------------------------------- */
-  --font-ui: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-ui: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', monospace;
+  --t-10: 10px;
   --t-11: 11px;
   --t-12: 12px;
   --t-13: 13px;
+  --t-14: 14px;
   --t-15: 15px;
-  --t-19: 19px;
+  --t-22: 22px;
+  --t-28: 28px;
+  --t-40: 40px;
   --ls-caps: 0.07em;
+  --ls-tight: -0.011em;
 
   /* geometry (4 px grid) ------------------------------------------ */
   --r-ctl: 6px;
   --r-card: 10px;
+  --r-pill: 99px;
   --h-ctl: 28px;
   --h-field: 32px;
-  --topbar-h: 44px;
-  --rail-w: 48px;
-  --panel-w: 320px;
-  --status-h: 24px;
+  /* UI-OVERHAUL.md §3 */
+  --topbar-h: 48px;
+  --rail-w: 52px;
+  --panel-w: 340px;
+  --drawer-w: 460px;
+  --strip-w: 236px;
+  --status-h: 26px;
   --gutter: 2px;
 
-  /* elevation — hairlines only, shadows reserved for popovers ------ */
+  /* elevation — hairlines only; shadows are for popovers and drawers */
   --pop-shadow: 0 16px 44px -16px rgba(0, 0, 0, 0.85), 0 0 0 1px var(--hairline-2);
-  --focus: 0 0 0 2px var(--accent);
+  --drawer-shadow: -24px 0 60px -24px rgba(0, 0, 0, 0.9);
+  /* UI-OVERHAUL.md §1: 2 px accent, 2 px offset, visible everywhere. */
+  --focus: 0 0 0 2px var(--canvas), 0 0 0 4px var(--accent);
+  --focus-inset: inset 0 0 0 2px var(--accent);
 
   /* motion -------------------------------------------------------- */
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
   --fast: 120ms;
   --med: 180ms;
+  --mark-loop: 1200ms;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  * {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }

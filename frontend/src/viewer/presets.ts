@@ -38,6 +38,24 @@ export const VOLUME_PRESETS: VolumePreset[] = [
 
 export const DEFAULT_VOLUME_PRESET = VOLUME_PRESETS[0];
 
+/**
+ * Volume-rendering presets for MR. A CT transfer function keyed to Hounsfield
+ * units renders an MR volume as a featureless brick, which is exactly the
+ * "MR is a second-class citizen" failure this build is meant to remove.
+ * These are the MR presets shipped in @cornerstonejs/core.
+ */
+export const MR_VOLUME_PRESETS: VolumePreset[] = [
+  { id: 'MR-Default', label: 'MR default', hint: 'general survey' },
+  { id: 'MR-Angio', label: 'MR angio', hint: 'flow-bright vessels' },
+  { id: 'MR-T2-Brain', label: 'T2 brain', hint: 'fluid bright' },
+  { id: 'MR-MIP', label: 'MIP', hint: 'max intensity' },
+];
+
+/** The 3D preset list that belongs to a modality. */
+export function volumePresetsFor(modality: string | null | undefined): VolumePreset[] {
+  return String(modality ?? '').toUpperCase() === 'MR' ? MR_VOLUME_PRESETS : VOLUME_PRESETS;
+}
+
 export interface SlabOption {
   id: string;
   label: string;

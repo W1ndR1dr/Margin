@@ -1,8 +1,11 @@
 /**
- * The Tools-tab panel for carotid encasement: a two-step stepper, an inline
- * hint when the inputs are on the wrong plane or slice, and the result card.
+ * The carotid encasement panel: a two-step stepper, an inline hint when the
+ * inputs are on the wrong plane or slice, and the result as evidence tiles.
+ *
+ * Severity is shape AND colour — dot / half ring / full ring — so the grade
+ * survives colour blindness and greyscale printing (DESIGN.md accessibility).
  */
-import { CornerUpLeft, Play, Plus, TriangleAlert, Waypoints, X } from 'lucide-react';
+import { Button, Chip, Icon, SeverityGlyph, Tile, TileRow, type Severity as UiSeverity } from '../../ui';
 import { clockLabel, type Severity } from './geometry';
 import { carotid, SIDE_LABEL, useCarotidStore, type CarotidPhase } from './carotidTool';
 import { APP_NAME } from '../../config';
@@ -21,38 +24,18 @@ const STEPS: Array<{ title: string; sub: string; phase: CarotidPhase }> = [
   },
 ];
 
-const CHIP: Record<Severity, { label: string; color: string; tint: string }> = {
-  abutment: { label: 'Abutment', color: 'var(--ok)', tint: 'rgba(74, 222, 128, 0.10)' },
-  partial: { label: 'Partial encasement', color: 'var(--warn)', tint: 'rgba(245, 165, 36, 0.10)' },
-  encasement: { label: 'Encasement', color: 'var(--danger)', tint: 'rgba(240, 85, 79, 0.10)' },
+const CHIP: Record<Severity, { label: string; severity: UiSeverity; range: string }> = {
+  abutment: { label: 'Abutment', severity: 'ok', range: 'under 180°' },
+  partial: { label: 'Partial encasement', severity: 'caution', range: '180–270°' },
+  encasement: { label: 'Encasement', severity: 'danger', range: 'over 270°' },
 };
-
-/** Colour plus a shape: dot, half ring, full ring (DESIGN.md accessibility). */
-function SeverityGlyph({ severity }: { severity: Severity }) {
-  return (
-    <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden>
-      {severity === 'abutment' && <circle cx="6" cy="6" r="2.6" fill="currentColor" />}
-      {severity === 'partial' && (
-        <path d="M6 1.6a4.4 4.4 0 0 1 0 8.8" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-      )}
-      {severity === 'encasement' && (
-        <circle cx="6" cy="6" r="4.4" fill="none" stroke="currentColor" strokeWidth="2.2" />
-      )}
-    </svg>
-  );
-}
 
 export function SeverityChip({ severity }: { severity: Severity }) {
   const c = CHIP[severity];
   return (
-    <span
-      className="ct-sev"
-      style={{ color: c.color, borderColor: c.color, background: c.tint }}
-      title={`${c.label} — ${severity === 'abutment' ? 'under 180°' : severity === 'partial' ? '180–270°' : 'over 270°'}`}
-    >
-      <SeverityGlyph severity={severity} />
+    <Chip severity={c.severity} title={`${c.label} — ${c.range}`}>
       {c.label}
-    </span>
+    </Chip>
   );
 }
 
@@ -62,7 +45,7 @@ function Stepper({ phase }: { phase: CarotidPhase }) {
     <div className="ct-steps">
       {STEPS.map((s, i) => (
         <div key={s.phase} className={`ct-step${i === index ? ' on' : ''}${i < index ? ' done' : ''}`}>
-          <span className="n">{i < index ? '✓' : i + 1}</span>
+          <span className="n">{i < index ? <Icon name="check" size={11} /> : i + 1}</span>
           <span className="ct-t">
             {s.title}
             <span className="ct-s">{s.sub}</span>
@@ -79,49 +62,54 @@ function ResultCard() {
   if (!result) return null;
 
   const clock = clockLabel(result);
-  const rounded = Math.round(result.angleDeg);
+  const sev = CHIP[result.severity].severity;
 
   return (
     <div className="ct-result">
       <div className="ct-top">
-        <div className="ct-big">
-          {rounded}
-          <span className="deg">°</span>
-        </div>
+        <span className={`ct-head-glyph sev-${sev}`}>
+          <SeverityGlyph severity={sev} size={13} />
+        </span>
+        <span className="ct-head-line">
+          {SIDE_LABEL[result.side]} · slice {result.sliceIndex + 1}
+          {clock ? ` · arc ${clock}` : ' · no contact'}
+        </span>
         <SeverityChip severity={result.severity} />
       </div>
 
-      <div className="ct-line">contact, {SIDE_LABEL[result.side]}</div>
-      <div className="ct-meta">
-        slice {result.sliceIndex + 1}
-        {clock ? ` · arc ${clock}` : ' · no contact'}
-      </div>
+      <TileRow>
+        <Tile
+          size="lg"
+          value={Math.round(result.angleDeg)}
+          unit="°"
+          label="circumferential contact"
+          severity={sev}
+        />
+        <Tile size="sm" value={result.longestArcDeg.toFixed(0)} unit="°" label="longest arc" />
+        <Tile size="sm" value={(result.radiusMm * 2).toFixed(1)} unit="mm" label="lumen ⌀" />
+      </TileRow>
 
       <dl className="ct-kv">
-        <dt>Longest contiguous arc</dt>
-        <dd>{result.longestArcDeg.toFixed(0)}°</dd>
         <dt>Contact sectors</dt>
         <dd>{result.arcs.length}</dd>
-        <dt>Lumen diameter</dt>
-        <dd>{(result.radiusMm * 2).toFixed(1)} mm</dd>
         <dt>Contact tolerance</dt>
         <dd>{result.toleranceMm.toFixed(1)} mm</dd>
       </dl>
 
       <div className="ct-actions">
-        <button
-          className="btn primary"
+        <Button
+          tone="primary"
+          size="sm"
+          icon={added ? 'check' : 'plus'}
           disabled={added}
           onClick={() => carotid.addToMeasurements()}
           title={added ? 'Already in the measurement list' : 'Add to the Measure tab'}
         >
-          <Plus size={14} strokeWidth={1.8} />
           {added ? 'Added' : 'Add to measurements'}
-        </button>
-        <button className="btn" onClick={() => carotid.redo()} title="Measure again">
-          <CornerUpLeft size={14} strokeWidth={1.8} />
+        </Button>
+        <Button size="sm" icon="undo" onClick={() => carotid.redo()} title="Measure again">
           Redo
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -136,24 +124,22 @@ export function CarotidPanel() {
     <>
       <div className="ct-card">
         <div className="ct-head">
-          <Waypoints size={16} strokeWidth={1.5} />
+          <Icon name="vessel" size={17} />
           <span className="ct-name">Carotid encasement</span>
-          <span className="kbd">C</span>
+          <kbd className="mg-kbd">C</kbd>
         </div>
         <p className="ct-desc">
           Degrees of circumferential contact between the tumour and the carotid lumen on one axial
           slice. {APP_NAME} samples the vessel wall 360 times and grades the arc.
         </p>
         {phase === 'idle' ? (
-          <button className="btn primary" onClick={() => carotid.start()}>
-            <Play size={14} strokeWidth={1.8} />
+          <Button tone="primary" size="sm" icon="play" block onClick={() => carotid.start()}>
             Start measurement
-          </button>
+          </Button>
         ) : (
-          <button className="btn" onClick={() => carotid.cancel()}>
-            <X size={14} strokeWidth={1.8} />
+          <Button size="sm" icon="close" block onClick={() => carotid.cancel()}>
             Cancel · Esc
-          </button>
+          </Button>
         )}
       </div>
 
@@ -161,13 +147,13 @@ export function CarotidPanel() {
 
       {hint && (
         <div className="ct-hint">
-          <TriangleAlert size={14} strokeWidth={1.8} className="ico" />
+          <Icon name="warning" size={14} className="ico" />
           <div>
             {hint}
             {phase === 'tumor' && anchorSlice !== null && (
-              <button className="btn" onClick={() => carotid.gotoAnchor()}>
+              <Button size="sm" icon="jump" onClick={() => carotid.gotoAnchor()}>
                 Go to slice {anchorSlice + 1}
-              </button>
+              </Button>
             )}
           </div>
         </div>

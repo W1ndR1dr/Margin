@@ -5,16 +5,20 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port 5173 --strictPort --host 127.0.0.1",
-    "build": "tsc --noEmit && vite build",
+    "build": "node scripts/build-icons.mjs && tsc --noEmit && vite build",
     "test": "vitest run",
-    "preview": "vite preview --port 5173 --host 127.0.0.1"
+    "preview": "vite preview --port 5173 --host 127.0.0.1",
+    "icons": "node scripts/build-icons.mjs"
   },
   "dependencies": {
     "@cornerstonejs/core": "^5.10.6",
     "@cornerstonejs/dicom-image-loader": "^5.10.6",
     "@cornerstonejs/tools": "^5.10.6",
+    "@iconify-json/healthicons": "^1.2.13",
+    "@iconify-json/ph": "^1.2.2",
+    "@iconify/react": "^6.0.2",
+    "@iconify/utils": "^3.1.7",
     "dicom-parser": "^1.8.21",
-    "lucide-react": "^1.47.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "zustand": "^5.0.15"

@@ -1,161 +1,189 @@
+/**
+ * Everything that floats above the shell: toasts, the import dialog, the
+ * command palette, the segment quick menu and the shortcut sheet.
+ *
+ * All five are built from `src/ui` primitives — there is no bespoke dialog or
+ * list markup left in here, which is what keeps the keyboard behaviour and the
+ * focus ring identical across them.
+ */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CircleCheckBig, Info, Search, TriangleAlert, X } from 'lucide-react';
+
 import { useAppStore } from '../store/useAppStore';
-import { importFolder, openSeries } from '../library';
+import { importFolder, openSeries, refreshLibrary } from '../library';
+import { pickFolder } from '../api/importClient';
 import { carotid } from '../tools/carotid';
 import { airway } from '../tools/airway';
 import { QUICK_ADDS, armRegionGrow, quickAdd } from '../labels/structureStore';
 import { RAIL_TOOLS, viewer } from '../viewer/ViewerCore';
-import { SLAB_OPTIONS, VOLUME_PRESETS, WINDOW_PRESETS } from '../viewer/presets';
+import { SLAB_OPTIONS, WINDOW_PRESETS, volumePresetsFor } from '../viewer/presets';
+import { presetsFor, normaliseModality, inferSequenceKind, SEQUENCE_LABEL } from '../viewer/modality';
+import { formatDicomDate, formatPersonName } from '../api/client';
 import { APP_NAME } from '../config';
-import { formatPersonName } from '../api/client';
-import { Kbd } from './ui';
+import {
+  Button,
+  Field,
+  Icon,
+  Kbd,
+  Modal,
+  Palette,
+  ToastStack,
+  type IconName,
+  type PaletteItem,
+} from '../ui';
 
 /* ---------------- toasts ---------------- */
 
 export function Toasts() {
   const toasts = useAppStore((s) => s.toasts);
   const drop = useAppStore((s) => s.dropToast);
-
-  useEffect(() => {
-    if (!toasts.length) return;
-    const timers = toasts.map((t) => window.setTimeout(() => drop(t.id), t.kind === 'err' ? 9000 : 4000));
-    return () => timers.forEach(window.clearTimeout);
-  }, [toasts, drop]);
-
-  return (
-    <div className="toasts">
-      {toasts.map((t) => (
-        <div className={`toast ${t.kind}`} key={t.id} onClick={() => drop(t.id)}>
-          <span className="ico">
-            {t.kind === 'ok' ? (
-              <CircleCheckBig size={15} strokeWidth={1.8} />
-            ) : t.kind === 'err' ? (
-              <TriangleAlert size={15} strokeWidth={1.8} />
-            ) : (
-              <Info size={15} strokeWidth={1.8} />
-            )}
-          </span>
-          <span className="txt">{t.title}</span>
-          {t.message && <span className="sub">{t.message}</span>}
-        </div>
-      ))}
-    </div>
-  );
+  return <ToastStack toasts={toasts} onDismiss={drop} />;
 }
 
 /* ---------------- import dialog ---------------- */
 
+/**
+ * Two ways in that do not need a typed path — the native picker on the server
+ * machine, and drag-and-drop onto the Library — plus the typed path as the
+ * fallback that always works. `POST /api/import/pick-folder` does not exist
+ * yet, so a 404 is reported as "this build has no picker", never as an error.
+ */
 export function ImportDialog() {
   const open = useAppStore((s) => s.importOpen);
   const health = useAppStore((s) => s.health);
   const set = useAppStore((s) => s.set);
+  const toast = useAppStore((s) => s.toast);
   const [path, setPath] = useState('');
+  const [picking, setPicking] = useState(false);
+  const [pickerNote, setPickerNote] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (open) {
-      setPath(health?.studies_root ?? '');
-      window.setTimeout(() => inputRef.current?.select(), 40);
-    }
+    if (!open) return;
+    setPath(health?.studies_root ?? '');
+    setPickerNote(null);
+    window.setTimeout(() => inputRef.current?.select(), 40);
   }, [open, health]);
 
-  if (!open) return null;
-  const submit = () => void importFolder(path.trim());
+  const submit = () => {
+    set({ importOpen: false });
+    void importFolder(path.trim());
+  };
+
+  const browse = async () => {
+    setPicking(true);
+    setPickerNote(null);
+    try {
+      const r = await pickFolder();
+      if ('path' in r) {
+        setPath(r.path);
+        set({ importOpen: false });
+        void importFolder(r.path);
+      } else if ('cancelled' in r) {
+        toast({ kind: 'info', title: 'Import cancelled' });
+      } else {
+        setPickerNote(r.message);
+      }
+    } finally {
+      setPicking(false);
+    }
+  };
 
   return (
-    <div className="scrim center" onMouseDown={(e) => e.target === e.currentTarget && set({ importOpen: false })}>
-      <div className="dialog" role="dialog" aria-modal>
-        <div className="dialog-head">
-          <div style={{ flex: 1 }}>
-            <div className="dialog-title">Import a DICOM folder</div>
-            <div className="dialog-sub">
-              Files are indexed in place — only headers are read, nothing is copied and nothing leaves this
-              machine. Re-importing the same folder is safe.
-            </div>
-          </div>
-          <button className="btn ghost icon" onClick={() => set({ importOpen: false })}>
-            <X size={15} strokeWidth={1.8} />
-          </button>
-        </div>
-        <div className="dialog-body">
-          <div className="field">
-            <label htmlFor="import-path">Folder path</label>
-            <input
-              id="import-path"
-              ref={inputRef}
-              className="input"
-              value={path}
-              spellCheck={false}
-              onChange={(e) => setPath(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') submit();
-                if (e.key === 'Escape') set({ importOpen: false });
-              }}
-              placeholder={health?.studies_root ?? 'C:\\path\\to\\dicom'}
-            />
-            <div className="hint">
-              Defaults to the {APP_NAME} studies root. Sub-folders are walked recursively; non-DICOM files
-              are skipped quietly.
-            </div>
-          </div>
-        </div>
-        <div className="dialog-foot">
-          <button className="btn" onClick={() => set({ importOpen: false })}>
-            Cancel
-          </button>
-          <button className="btn primary" onClick={submit}>
+    <Modal
+      open={open}
+      onClose={() => set({ importOpen: false })}
+      title="Import DICOM"
+      sub="Files are indexed in place — only headers are read and nothing leaves this machine. Re-importing the same folder is safe."
+      footer={
+        <>
+          <Button onClick={() => set({ importOpen: false })}>Cancel</Button>
+          <Button tone="primary" icon="folderAdd" onClick={submit} disabled={!path.trim()}>
             Index folder
-          </button>
-        </div>
+          </Button>
+        </>
+      }
+    >
+      <div className="imp-ways">
+        <Button icon="folderAdd" busy={picking} onClick={() => void browse()} block>
+          Browse folder…
+        </Button>
+        <span className="imp-or">or drop a folder onto the Library</span>
       </div>
-    </div>
+
+      {pickerNote && (
+        <div className="imp-note">
+          <Icon name="info" size={13} />
+          {pickerNote}
+        </div>
+      )}
+
+      <div className="mg-hairline" />
+
+      <Field
+        ref={inputRef}
+        block
+        mono
+        label="Folder path on this machine"
+        value={path}
+        icon="drive"
+        placeholder={health?.studies_root ?? 'C:\\path\\to\\dicom'}
+        onChange={(e) => setPath(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') submit();
+        }}
+        hint={`Defaults to the ${APP_NAME} studies root. Sub-folders are walked recursively; non-DICOM files are skipped quietly.`}
+      />
+    </Modal>
   );
 }
 
 /* ---------------- command palette ---------------- */
 
-interface Cmd {
-  id: string;
-  group: string;
-  label: string;
-  run: () => void;
-}
-
 export function CommandPalette() {
   const open = useAppStore((s) => s.paletteOpen);
   const layout = useAppStore((s) => s.layout);
   const studies = useAppStore((s) => s.studies);
+  const patients = useAppStore((s) => s.patients);
   const seriesByStudy = useAppStore((s) => s.seriesByStudy);
+  const activeSeries = useAppStore((s) => s.activeSeries);
   const set = useAppStore((s) => s.set);
-  const [q, setQ] = useState('');
-  const [cursor, setCursor] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
 
-  const commands = useMemo<Cmd[]>(() => {
-    const list: Cmd[] = [];
+  const items = useMemo<PaletteItem[]>(() => {
+    const list: PaletteItem[] = [];
+    const mpr = layout === 'mpr';
+    const modality = normaliseModality(activeSeries?.modality);
+
     RAIL_TOOLS.forEach((t) =>
       list.push({
         id: `tool-${t.name}`,
         group: 'Tool',
-        label: `${t.label}  (${t.key.toUpperCase()})`,
+        label: t.label,
+        detail: t.key.toUpperCase(),
+        icon: 'crosshair',
         run: () => viewer.setActiveTool(t.name),
       }),
     );
-    WINDOW_PRESETS.forEach((p) =>
+
+    // Window presets follow the modality: MR gets MR presets, not HU ones.
+    presetsFor(modality, WINDOW_PRESETS).forEach((p) =>
       list.push({
         id: `win-${p.id}`,
         group: 'Window',
-        label: `${p.label} — ${p.hint}`,
-        run: () => viewer.applyWindow(p.ww, p.wc, p.id),
+        label: p.label,
+        detail: p.hint,
+        icon: 'windowLevel',
+        run: () => viewer.applyPreset(p.id),
       }),
     );
-    if (layout === 'mpr') {
-      VOLUME_PRESETS.forEach((p) =>
+
+    if (mpr) {
+      volumePresetsFor(activeSeries?.modality).forEach((p) =>
         list.push({
           id: `vol-${p.id}`,
           group: '3D preset',
-          label: `${p.label} — ${p.hint}`,
+          label: p.label,
+          detail: p.hint,
+          icon: 'volume3d',
           run: () => viewer.setVolumePreset(p.id),
         }),
       );
@@ -164,42 +192,33 @@ export function CommandPalette() {
           id: `slab-${p.id}`,
           group: 'Slab',
           label: p.label,
+          icon: 'slab',
           run: () => viewer.setSlab(p.id),
         }),
       );
-    }
-    Object.values(seriesByStudy)
-      .flat()
-      .forEach((s) => {
-        const st = studies.find((x) => x.study_uid === s.study_uid);
-        list.push({
-          id: `series-${s.series_uid}`,
-          group: 'Series',
-          label: `${formatPersonName(st?.patient_name)} — ${s.description || s.modality || 'series'}`,
-          run: () => {
-            set({ screen: 'view' });
-            void openSeries(s);
-          },
-        });
-      });
-    if (layout === 'mpr') {
       list.push(
         {
           id: 'hn-carotid',
           group: 'Head & neck',
-          label: 'Carotid encasement  (C)',
+          label: 'Carotid encasement',
+          detail: 'C',
+          icon: 'vessel',
           run: () => carotid.start(),
         },
         {
           id: 'hn-airway',
           group: 'Head & neck',
-          label: 'Airway analyser  (Y)',
+          label: 'Airway patency',
+          detail: 'Y',
+          icon: 'airway',
           run: () => airway.start(),
         },
         {
           id: 'hn-structures',
           group: 'Head & neck',
-          label: 'Segment — quick menu  (G)',
+          label: 'Segment — quick menu',
+          detail: 'G',
+          icon: 'selection',
           run: () => set({ structuresMenuOpen: true }),
         },
       );
@@ -207,7 +226,9 @@ export function CommandPalette() {
         list.push({
           id: `quick-${q.id}`,
           group: 'Segment',
-          label: `${q.label} — ${q.hint}`,
+          label: q.label,
+          detail: q.hint,
+          icon: 'selection',
           run: () => void quickAdd(q.id),
         }),
       );
@@ -215,107 +236,95 @@ export function CommandPalette() {
         id: 'quick-grow',
         group: 'Segment',
         label: 'Region grow from click',
+        icon: 'wand',
         run: () => armRegionGrow(),
       });
     }
+
+    // UI-OVERHAUL.md §8: the palette fuzzy-matches patients and series too.
+    patients.forEach((p) =>
+      list.push({
+        id: `patient-${p.patient_id}`,
+        group: 'Patient',
+        label: formatPersonName(p.name),
+        detail: p.patient_id,
+        keywords: `${p.name} ${p.patient_id}`,
+        icon: 'user',
+        run: () => {
+          const first = studies.find((s) => s.patient_id === p.patient_id);
+          set({ screen: 'library', expandedStudy: first?.study_uid ?? null });
+        },
+      }),
+    );
+
+    studies.forEach((st) =>
+      list.push({
+        id: `study-${st.study_uid}`,
+        group: 'Study',
+        label: `${formatPersonName(st.patient_name)} — ${st.description || 'Study'}`,
+        detail: formatDicomDate(st.study_date),
+        keywords: `${st.patient_id} ${st.accession ?? ''} ${(st.modalities ?? []).join(' ')}`,
+        icon: 'study',
+        run: () => set({ screen: 'library', expandedStudy: st.study_uid }),
+      }),
+    );
+
+    Object.values(seriesByStudy)
+      .flat()
+      .forEach((s) => {
+        const st = studies.find((x) => x.study_uid === s.study_uid);
+        const kind = inferSequenceKind(s);
+        list.push({
+          id: `series-${s.series_uid}`,
+          group: 'Series',
+          label: `${formatPersonName(st?.patient_name)} — ${s.description || s.modality || 'series'}`,
+          detail: `${s.modality ?? '??'}${kind ? ` ${SEQUENCE_LABEL[kind]}` : ''} · ${s.instance_count}`,
+          keywords: `${s.modality ?? ''} ${s.description ?? ''} ${st?.patient_id ?? ''}`,
+          icon: 'series',
+          run: () => {
+            set({ screen: 'read' });
+            void openSeries(s);
+          },
+        });
+      });
+
     list.push(
-      { id: 'screen-library', group: 'Go', label: 'Library', run: () => set({ screen: 'library' }) },
-      { id: 'screen-view', group: 'Go', label: 'Viewer', run: () => set({ screen: 'view' }) },
-      { id: 'reset', group: 'View', label: 'Reset all views', run: () => viewer.resetViews() },
-      { id: 'invert', group: 'View', label: 'Invert greyscale', run: () => viewer.setInvert(!useAppStore.getState().invert) },
-      { id: 'clear', group: 'Measure', label: 'Clear all measurements', run: () => viewer.clearMeasurements() },
-      { id: 'import', group: 'Library', label: 'Import folder…', run: () => set({ importOpen: true }) },
-      { id: 'shortcuts', group: 'Help', label: 'Keyboard shortcuts', run: () => set({ shortcutsOpen: true }) },
+      { id: 'go-library', group: 'Go', label: 'Library', detail: 'Ctrl L', icon: 'library', run: () => set({ screen: 'library' }) },
+      { id: 'go-read', group: 'Go', label: 'Read', icon: 'findings', run: () => set({ screen: 'read' }) },
+      { id: 'go-findings', group: 'Go', label: 'Findings panel', icon: 'findings', run: () => set({ panelTab: 'findings', panelOpen: true, askOpen: false }) },
+      { id: 'go-structures', group: 'Go', label: 'Structures panel', icon: 'selection', run: () => set({ panelTab: 'structures', panelOpen: true, askOpen: false }) },
+      { id: 'go-report', group: 'Go', label: 'Report panel', icon: 'report', run: () => set({ panelTab: 'report', panelOpen: true, askOpen: false }) },
+      { id: 'go-ask', group: 'Go', label: 'Ask Margin', icon: 'ask', run: () => set({ askOpen: true }) },
+      { id: 'lay-strip', group: 'Layout', label: 'Primary + context strip', icon: 'layoutStrip', run: () => set({ grid: 'strip', maximized: null }) },
+      { id: 'lay-2x2', group: 'Layout', label: 'Quad MPR + 3D', icon: 'layoutQuad', run: () => set({ grid: '2x2', maximized: null }) },
+      { id: 'lay-1x1', group: 'Layout', label: 'Single viewport', icon: 'layoutSingle', run: () => set({ grid: '1x1', maximized: null }) },
+      { id: 'view-reset', group: 'View', label: 'Reset all views', detail: 'R', icon: 'reset', run: () => viewer.resetViews() },
+      { id: 'view-invert', group: 'View', label: 'Invert greyscale', detail: 'I', icon: 'invert', run: () => viewer.setInvert(!useAppStore.getState().invert) },
+      { id: 'view-snap', group: 'View', label: 'Snapshot PNG', detail: 'K', icon: 'snapshot', run: () => window.dispatchEvent(new CustomEvent('margin:snapshot')) },
+      { id: 'm-clear', group: 'Measure', label: 'Clear all measurements', icon: 'trash', run: () => viewer.clearMeasurements() },
+      { id: 'lib-import', group: 'Library', label: 'Import folder…', detail: 'Ctrl O', icon: 'folderAdd', run: () => set({ importOpen: true }) },
+      { id: 'lib-refresh', group: 'Library', label: 'Refresh the library', icon: 'refresh', run: () => void refreshLibrary() },
+      { id: 'help-keys', group: 'Help', label: 'Keyboard shortcuts', detail: '?', icon: 'keyboard', run: () => set({ shortcutsOpen: true }) },
     );
     return list;
-  }, [layout, set, seriesByStudy, studies]);
-
-  const matches = useMemo(() => {
-    const t = q.trim().toLowerCase();
-    if (!t) return commands.slice(0, 40);
-    return commands.filter((c) => `${c.group} ${c.label}`.toLowerCase().includes(t)).slice(0, 40);
-  }, [commands, q]);
-
-  useEffect(() => {
-    if (open) {
-      setQ('');
-      setCursor(0);
-      window.setTimeout(() => inputRef.current?.focus(), 30);
-    }
-  }, [open]);
-  useEffect(() => setCursor(0), [q]);
-
-  if (!open) return null;
-
-  const runAt = (i: number) => {
-    const c = matches[i];
-    if (!c) return;
-    set({ paletteOpen: false });
-    window.setTimeout(() => c.run(), 0);
-  };
+  }, [layout, patients, studies, seriesByStudy, activeSeries, set]);
 
   return (
-    <div className="scrim top" onMouseDown={(e) => e.target === e.currentTarget && set({ paletteOpen: false })}>
-      <div className="palette" role="dialog" aria-modal>
-        <div className="palette-input">
-          <Search size={17} strokeWidth={1.5} />
-          <input
-            ref={inputRef}
-            value={q}
-            placeholder={`Search ${APP_NAME} — tools, presets, series, actions`}
-            spellCheck={false}
-            onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                setCursor((c) => Math.min(c + 1, matches.length - 1));
-              } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                setCursor((c) => Math.max(c - 1, 0));
-              } else if (e.key === 'Enter') {
-                e.preventDefault();
-                runAt(cursor);
-              } else if (e.key === 'Escape') {
-                set({ paletteOpen: false });
-              }
-            }}
-          />
-        </div>
-        <div className="palette-list">
-          {matches.length === 0 && <div className="empty-note">Nothing matches “{q}”.</div>}
-          {matches.map((c, i) => (
-            <button
-              key={c.id}
-              className={`palette-item${i === cursor ? ' cur' : ''}`}
-              onMouseEnter={() => setCursor(i)}
-              onClick={() => runAt(i)}
-            >
-              <span className="main">{c.label}</span>
-              <span className="grp">{c.group}</span>
-            </button>
-          ))}
-        </div>
-        <div className="palette-foot">
-          <span>
-            <Kbd>↑</Kbd> <Kbd>↓</Kbd> navigate
-          </span>
-          <span>
-            <Kbd>⏎</Kbd> run
-          </span>
-          <span>
-            <Kbd>esc</Kbd> close
-          </span>
-        </div>
-      </div>
-    </div>
+    <Palette
+      open={open}
+      onClose={() => set({ paletteOpen: false })}
+      items={items}
+      placeholder={`Search ${APP_NAME} — tools, presets, patients, series, actions`}
+    />
   );
 }
 
 /* ---------------- shortcut sheet ---------------- */
 
-const SHORTCUTS: Array<[string, Array<[string, string]>]> = [
+const SHORTCUTS: Array<[string, IconName, Array<[string, string]>]> = [
   [
     'Navigate',
+    'crosshair',
     [
       ['Window / level', 'W'],
       ['Pan', 'P'],
@@ -327,6 +336,7 @@ const SHORTCUTS: Array<[string, Array<[string, string]>]> = [
   ],
   [
     'Measure',
+    'length',
     [
       ['Length', 'L'],
       ['Bidirectional', 'B'],
@@ -334,17 +344,21 @@ const SHORTCUTS: Array<[string, Array<[string, string]>]> = [
       ['Ellipse ROI', 'E'],
       ['Rectangle ROI', 'T'],
       ['Freehand ROI', 'D'],
-      ['Probe (HU)', 'H'],
+      ['Probe', 'H'],
     ],
   ],
   [
     'View',
+    'layoutStrip',
     [
       ['Scroll slices', 'wheel / ↑ ↓'],
       ['Jump 10 slices', 'PgUp / PgDn'],
       ['Pan', 'right-drag'],
       ['Zoom', 'middle-drag'],
-      ['Maximize viewport', 'F / double-click'],
+      ['Maximize viewport', 'F / dbl-click'],
+      ['Primary + strip', '['],
+      ['Quad layout', ']'],
+      ['Cycle primary plane', 'V'],
       ['Reset views', 'R'],
       ['Invert greyscale', 'I'],
       ['Next window preset', 'Q'],
@@ -354,20 +368,27 @@ const SHORTCUTS: Array<[string, Array<[string, string]>]> = [
   ],
   [
     'Head & neck',
+    'vessel',
     [
       ['Carotid encasement', 'C'],
-      ['Airway analyser', 'Y'],
+      ['Airway patency', 'Y'],
       ['Segment quick menu', 'G'],
       ['Cancel the running tool', 'Esc'],
     ],
   ],
   [
     'Workspace',
+    'command',
     [
+      ['Ask Margin', 'Ctrl J'],
       ['Command palette', 'Ctrl K'],
       ['Library', 'Ctrl L'],
       ['Side panel', 'Ctrl I'],
       ['Import folder', 'Ctrl O'],
+      ['Findings tab', 'Ctrl 1'],
+      ['Structures tab', 'Ctrl 2'],
+      ['Measure tab', 'Ctrl 3'],
+      ['Report tab', 'Ctrl 4'],
       ['This sheet', '?'],
     ],
   ],
@@ -376,40 +397,35 @@ const SHORTCUTS: Array<[string, Array<[string, string]>]> = [
 export function ShortcutsSheet() {
   const open = useAppStore((s) => s.shortcutsOpen);
   const set = useAppStore((s) => s.set);
-  if (!open) return null;
   return (
-    <div className="scrim center" onMouseDown={(e) => e.target === e.currentTarget && set({ shortcutsOpen: false })}>
-      <div className="dialog sheet" role="dialog" aria-modal>
-        <div className="dialog-head">
-          <div style={{ flex: 1 }}>
-            <div className="dialog-title">Keyboard</div>
-            <div className="dialog-sub">
-              Single-key hotkeys, no modifiers — {APP_NAME} is meant to be driven one-handed.
-            </div>
-          </div>
-          <button className="btn ghost icon" onClick={() => set({ shortcutsOpen: false })}>
-            <X size={15} strokeWidth={1.8} />
-          </button>
-        </div>
-        <div className="sheet-grid">
-          {SHORTCUTS.map(([group, rows]) => (
-            <div className="sheet-col" key={group}>
-              <h4>{group}</h4>
-              {rows.map(([label, keys]) => (
-                <div className="sheet-row" key={label}>
-                  <span>{label}</span>
-                  <span className="keys">
-                    {keys.split(' ').map((k, i) => (
-                      <Kbd key={i}>{k}</Kbd>
-                    ))}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
+    <Modal
+      open={open}
+      size="xl"
+      onClose={() => set({ shortcutsOpen: false })}
+      title="Keyboard"
+      sub={`Single-key hotkeys, no modifiers — ${APP_NAME} is meant to be driven one-handed.`}
+    >
+      <div className="sheet-grid">
+        {SHORTCUTS.map(([group, icon, rows]) => (
+          <section className="sheet-col" key={group}>
+            <h4>
+              <Icon name={icon} size={14} />
+              {group}
+            </h4>
+            {rows.map(([label, keys]) => (
+              <div className="sheet-row" key={label}>
+                <span>{label}</span>
+                <span className="keys">
+                  {keys.split(' ').map((k, i) => (
+                    <Kbd key={i}>{k}</Kbd>
+                  ))}
+                </span>
+              </div>
+            ))}
+          </section>
+        ))}
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -419,43 +435,33 @@ export function StructuresQuickMenu() {
   const open = useAppStore((s) => s.structuresMenuOpen);
   const layout = useAppStore((s) => s.layout);
   const set = useAppStore((s) => s.set);
-  if (!open || layout !== 'mpr') return null;
 
   const pick = (run: () => void) => {
-    set({ structuresMenuOpen: false, panelTab: 'structures', panelOpen: true });
+    set({ structuresMenuOpen: false, panelTab: 'structures', panelOpen: true, askOpen: false });
     window.setTimeout(run, 0);
   };
 
   return (
-    <div
-      className="scrim center"
-      onMouseDown={(e) => e.target === e.currentTarget && set({ structuresMenuOpen: false })}
+    <Modal
+      open={open && layout === 'mpr'}
+      onClose={() => set({ structuresMenuOpen: false })}
+      title="Segment"
+      sub="Threshold presets run on the whole volume; region grow starts from one click."
     >
-      <div className="dialog quick" role="dialog" aria-modal>
-        <div className="dialog-head">
-          <div style={{ flex: 1 }}>
-            <div className="dialog-title">Segment</div>
-            <div className="dialog-sub">
-              Threshold presets run on the whole volume; region grow starts from one click.
-            </div>
-          </div>
-          <button className="btn ghost icon" onClick={() => set({ structuresMenuOpen: false })}>
-            <X size={15} strokeWidth={1.8} />
+      <div className="quick-list">
+        {QUICK_ADDS.map((q) => (
+          <button key={q.id} type="button" className="quick-item" onClick={() => pick(() => void quickAdd(q.id))}>
+            <span className="qi-sw" style={{ background: `rgb(${q.color.join(',')})` }} />
+            <span className="qi-main">{q.label}</span>
+            <span className="qi-sub mono">{q.hint}</span>
           </button>
-        </div>
-        <div className="quick-list">
-          {QUICK_ADDS.map((q) => (
-            <button key={q.id} className="palette-item" onClick={() => pick(() => void quickAdd(q.id))}>
-              <span className="main">{q.label}</span>
-              <span className="grp">{q.hint}</span>
-            </button>
-          ))}
-          <button className="palette-item" onClick={() => pick(() => armRegionGrow())}>
-            <span className="main">Region grow from click</span>
-            <span className="grp">then click inside the structure</span>
-          </button>
-        </div>
+        ))}
+        <button type="button" className="quick-item" onClick={() => pick(() => armRegionGrow())}>
+          <Icon name="wand" size={14} />
+          <span className="qi-main">Region grow from click</span>
+          <span className="qi-sub">then click inside the structure</span>
+        </button>
       </div>
-    </div>
+    </Modal>
   );
 }

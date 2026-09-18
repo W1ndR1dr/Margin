@@ -11,8 +11,14 @@
     <meta name="theme-color" content="#0A0C10" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!--
+      The ONE external request Margin makes, and only at dev/build time in the
+      browser's font cache: Instrument Sans (UI) + JetBrains Mono (numbers).
+      README.md records this; it is to be self-hosted before v1 so the app is
+      fully offline. No other CDN is allowed at runtime (CLAUDE.md).
+    -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
   </head>

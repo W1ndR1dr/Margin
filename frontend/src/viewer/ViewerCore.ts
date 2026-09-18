@@ -45,8 +45,19 @@ import {
 
 import { imageIdFor, type SeriesDetail } from '../api/client';
 import { useAppStore, type Measurement, type PaneId } from '../store/useAppStore';
-import { SLAB_OPTIONS, WINDOW_PRESETS } from './presets';
+import { SLAB_OPTIONS, WINDOW_PRESETS, volumePresetsFor } from './presets';
 import { planSliceJump } from './sliceNav';
+import { anatomyProbe } from '../labels/anatomyProbe';
+import {
+  autoWindowForVolume,
+  defaultPresetId,
+  normaliseModality,
+  presetsFor,
+  rescalePresetToData,
+  resolveWindow,
+  inferSequenceKind,
+  type Modality,
+} from './modality';
 
 const { MouseBindings } = csToolsEnums;
 const { ViewportType, OrientationAxis, BlendModes } = Enums;
@@ -286,6 +297,16 @@ class ViewerCore {
   private elements = new Map<PaneId, HTMLDivElement>();
   private resizeObserver: ResizeObserver | null = null;
   private volumeId: string | null = null;
+  /** Modality of the series on screen — drives windowing and ROI units. */
+  private modality: Modality = 'CT';
+  private sequenceKind: ReturnType<typeof inferSequenceKind> = null;
+  /** The linked second series shown in place of the 3D pane, if any. */
+  private linkedVolumeId: string | null = null;
+  private linkSync: (() => void) | null = null;
+  /** True once the data-derived window has been applied for the current load. */
+  private autoWindowDone = false;
+  /** The window Margin last asked for, so a late viewport can be corrected. */
+  private appliedWindow: { ww: number; wc: number } | null = null;
   private mode: 'mpr' | 'stack' | null = null;
   private activePanes: PaneId[] = [];
   private cineTimer: number | null = null;
@@ -375,9 +396,19 @@ class ViewerCore {
     this.resizeObserver.observe(stage);
   }
 
+  /**
+   * Re-fit the canvases after a layout or window change.
+   *
+   * The second argument is Cornerstone's `keepCamera`, and it must be true.
+   * With false, every resize — switching layout, dragging the window edge,
+   * opening the Ask drawer — silently reset the camera, throwing away the
+   * user's pan, zoom and slice. It also made `jumpToWorld` look broken:
+   * a finding jumped to its slice and the resize that followed the panel
+   * change put the view straight back.
+   */
   resize(): void {
     try {
-      this.engine?.resize(true, false);
+      this.engine?.resize(true, true);
     } catch {
       /* engine may be mid-teardown */
     }
@@ -562,6 +593,13 @@ class ViewerCore {
     const token = ++this.loadToken;
     const store = useAppStore.getState();
     store.set({ viewerError: null });
+    this.autoWindowDone = false;
+    this.appliedWindow = null;
+    // A measurement belongs to the series it was drawn on. Annotations live in
+    // Cornerstone's global state and derived rows live here, so neither is
+    // cleared by the store reset in `openSeries` — without this, the previous
+    // patient's ROI reappeared on the next study.
+    this.clearMeasurements();
 
     const instances = [...(series.instances ?? [])];
     if (!instances.length) {
@@ -583,10 +621,29 @@ class ViewerCore {
     const engine = new RenderingEngine(ENGINE_ID);
     this.engine = engine;
 
-    const preset = WINDOW_PRESETS.find((p) => p.id === store.windowPresetId) ?? WINDOW_PRESETS[0];
+    // Modality decides which preset table applies and whether the window has
+    // to be learned from the data (MR has no absolute intensity scale).
+    this.modality = normaliseModality(series.modality);
+    this.sequenceKind = inferSequenceKind(series);
+    const table = presetsFor(this.modality, WINDOW_PRESETS);
+    const wantId = defaultPresetId(this.modality, this.sequenceKind) ?? store.windowPresetId;
+    const preset = table.find((p) => p.id === wantId) ?? table[0];
+    store.set({ windowPresetId: preset.id, windowSource: 'preset' });
+
+    // Ask the backend for a modality-aware window first; it knows the DICOM
+    // WindowWidth/WindowCenter and can compute percentiles server-side. The
+    // route is being added, so a 404 just falls through to the preset and,
+    // for MR, to the client-side percentile pass once the volume is resident.
+    const resolved = await resolveWindow(series, { ww: preset.ww, wc: preset.wc });
+    if (token !== this.loadToken) return;
+    if (resolved.source !== 'fallback') {
+      store.set({ windowSource: resolved.source });
+    }
+    const openWw = resolved.ww;
+    const openWc = resolved.wc;
 
     if (!volumetric) {
-      await this.setupStack(engine, imageIds, preset.ww, preset.wc);
+      await this.setupStack(engine, imageIds, openWw, openWc);
       if (token !== this.loadToken) return;
       this.bindEvents();
       useAppStore.getState().set({
@@ -599,11 +656,38 @@ class ViewerCore {
       return;
     }
 
-    await this.setupMpr(engine, series, imageIds, token, preset.ww, preset.wc);
+    await this.setupMpr(engine, series, imageIds, token, openWw, openWc);
   }
 
+  /**
+   * Tear the engine down, disabling every tool first.
+   *
+   * `destroyToolGroup` alone is not enough: a tool that subscribed to the
+   * viewport's DOM element (CrosshairsTool does, for VOLUME_NEW_IMAGE) keeps
+   * that listener, and React reuses the same divs across a series change. The
+   * orphaned instance then fires with `this.toolGroup === undefined` the next
+   * time any volume appears — including a segmentation labelmap — and throws
+   * "Cannot read properties of undefined (reading 'viewportsInfo')" on every
+   * pointer interaction afterwards. Disabling the tool runs its own cleanup,
+   * which removes the listener.
+   */
   private teardownEngine(): void {
     [TG_MPR, TG_3D, TG_STACK].forEach((id) => {
+      const tg = ToolGroupManager.getToolGroup(id);
+      if (tg) {
+        try {
+          Object.keys(tg.toolOptions ?? {}).forEach((name) => {
+            try {
+              tg.setToolDisabled(name);
+            } catch {
+              /* a tool that was never enabled */
+            }
+          });
+          tg.removeViewports(ENGINE_ID);
+        } catch {
+          /* the group may already be half torn down */
+        }
+      }
       try {
         ToolGroupManager.destroyToolGroup(id);
       } catch {
@@ -768,6 +852,8 @@ class ViewerCore {
       eventTarget.removeEventListener(Enums.Events.IMAGE_VOLUME_MODIFIED, onProgress);
       eventTarget.removeEventListener(Enums.Events.IMAGE_VOLUME_LOADING_COMPLETED, finish);
       useAppStore.getState().set({ loading: { active: false, loaded: 0, total: 0, label: '' } });
+      // The window can only be learned from the data once the data is there.
+      this.autoWindowFromData(token);
       this.refreshAllPaneState();
     };
     eventTarget.addEventListener(Enums.Events.IMAGE_VOLUME_LOADING_COMPLETED, finish);
@@ -781,16 +867,27 @@ class ViewerCore {
     );
     if (token !== this.loadToken) return;
 
-    MPR_PANES.forEach((p) => {
-      const vp = engine.getViewport(VIEWPORT_ID[p]) as Types.IVolumeViewport;
-      vp.setProperties({ voiRange: csUtils.windowLevel.toLowHighRange(ww, wc) });
-    });
+    // A short MR series can finish loading before this line is reached, so the
+    // data-derived window may already be on screen. Do not stamp the preset
+    // back over it.
+    if (!this.autoWindowDone) {
+      MPR_PANES.forEach((p) => {
+        const vp = engine.getViewport(VIEWPORT_ID[p]) as Types.IVolumeViewport;
+        vp.setProperties({ voiRange: csUtils.windowLevel.toLowHighRange(ww, wc) });
+      });
+    }
 
     await setVolumesForViewports(engine, [{ volumeId }], [VIEWPORT_ID.volume3d]);
     if (token !== this.loadToken) return;
     try {
+      // The 3D transfer function has to match the modality or the render is a
+      // featureless block; a CT window on MR signal means nothing.
+      const list = volumePresetsFor(series.modality);
+      const current = useAppStore.getState().volumePresetId;
+      const presetId = list.some((p) => p.id === current) ? current : list[0].id;
       const vp3d = engine.getViewport(VIEWPORT_ID.volume3d) as Types.IVolumeViewport;
-      vp3d.setProperties({ preset: useAppStore.getState().volumePresetId });
+      vp3d.setProperties({ preset: presetId });
+      useAppStore.getState().set({ volumePresetId: presetId });
       this.resetVolumeCamera();
     } catch (e) {
       console.warn('[hnrad] 3D preset could not be applied', e);
@@ -800,13 +897,261 @@ class ViewerCore {
     this.bindEvents();
     engine.render();
 
-    // Safety net: if the completion event is missed, clear the bar anyway.
+    // Safety net: if the completion event is missed, clear the bar anyway, and
+    // give the data-derived window a second chance now that every viewport has
+    // its volume and its VOI.
     window.setTimeout(() => {
       const s = useAppStore.getState();
       if (s.loading.active && s.loading.loaded >= s.loading.total && s.loading.total > 0) finish();
+      else this.autoWindowFromData(token);
+      // Re-assert the window Margin actually asked for. A viewport that
+      // received its volume late keeps Cornerstone's own default VOI, so the
+      // three planes end up disagreeing about the same tissue — and reading
+      // the pane back would just propagate whichever one lost the race.
+      if (token === this.loadToken && this.mode === 'mpr' && this.appliedWindow) {
+        this.applyWindow(this.appliedWindow.ww, this.appliedWindow.wc);
+      }
     }, 1200);
 
     this.refreshAllPaneState();
+  }
+
+  /* ---------------- modality-aware windowing ---------------- */
+
+  /**
+   * MR (and PET) have no absolute intensity scale: a fixed W/L is meaningless
+   * across scanners, sequences and even reconstructions of the same exam. So
+   * once the volume is resident, take a percentile window from the voxels
+   * themselves. CT keeps its HU presets and is skipped.
+   *
+   * Runs once per load, and only when nothing better already arrived
+   * (`windowSource` stays 'preset' until the backend or this pass replaces it).
+   */
+  private autoWindowFromData(token: number): void {
+    if (token !== this.loadToken) return;
+    if (this.modality === 'CT' || this.autoWindowDone) return;
+    const store = useAppStore.getState();
+    // Something better than a preset already arrived (the backend's own
+    // window); leave it alone.
+    if (store.windowSource !== 'preset') return;
+
+    const samples = this.sampleVolume();
+    if (!samples) return;
+    const auto = autoWindowForVolume(samples, this.modality);
+    if (!auto) return;
+
+    this.autoWindowDone = true;
+    this.applyWindow(auto.ww, auto.wc);
+    useAppStore.getState().set({ windowSource: 'percentile' });
+  }
+
+  /**
+   * A strided sample of the loaded volume, for histogram work.
+   *
+   * Deliberately NOT `voxelManager.getCompleteScalarDataArray()`: that
+   * allocates and refills a full copy (~47 MB on a 512x512x180), which is a
+   * visible hitch on the Intel iGPU this runs on. Striding to roughly
+   * 180x180x90 samples is ~1/18th of the voxels, far more than a 512-bin
+   * histogram needs, and costs a few milliseconds.
+   */
+  private sampleVolume(): Float32Array | null {
+    const vol = this.getCtVolume();
+    const vm = vol?.voxelManager as
+      | { getAtIJK?: (i: number, j: number, k: number) => number }
+      | undefined;
+    if (!vol?.dimensions || !vm?.getAtIJK) return null;
+    const [nx, ny, nz] = vol.dimensions;
+    if (!(nx > 0 && ny > 0 && nz > 0)) return null;
+
+    const sx = Math.max(1, Math.round(nx / 180));
+    const sy = Math.max(1, Math.round(ny / 180));
+    const sz = Math.max(1, Math.round(nz / 90));
+    const out = new Float32Array(Math.ceil(nx / sx) * Math.ceil(ny / sy) * Math.ceil(nz / sz));
+    let n = 0;
+    try {
+      for (let k = 0; k < nz; k += sz) {
+        for (let j = 0; j < ny; j += sy) {
+          for (let i = 0; i < nx; i += sx) {
+            const v = vm.getAtIJK(i, j, k);
+            if (typeof v === 'number' && Number.isFinite(v)) out[n++] = v;
+          }
+        }
+      }
+    } catch {
+      return n > 32 ? out.subarray(0, n) : null;
+    }
+    return n > 32 ? out.subarray(0, n) : null;
+  }
+
+  /** The window presets that apply to the series on screen. */
+  get windowPresets(): typeof WINDOW_PRESETS {
+    return presetsFor(this.modality, WINDOW_PRESETS);
+  }
+
+  get currentModality(): Modality {
+    return this.modality;
+  }
+
+  /**
+   * Apply a preset by id. For MR the preset is a *ratio*, re-anchored onto the
+   * data's own centre, because a stored width/centre pair means nothing across
+   * scanners - see `rescalePresetToData`.
+   */
+  applyPreset(presetId: string): void {
+    const preset = this.windowPresets.find((p) => p.id === presetId);
+    if (!preset) return;
+    if (this.modality === 'CT') {
+      this.applyWindow(preset.ww, preset.wc, preset.id);
+      return;
+    }
+    const pane = useAppStore.getState().panes[this.mode === 'stack' ? 'stack' : 'axial'];
+    const scaled = rescalePresetToData(preset, { ww: pane.ww, wc: pane.wc });
+    this.applyWindow(scaled.ww, scaled.wc, preset.id);
+  }
+
+  /* ---------------- linked second series ---------------- */
+
+  /**
+   * Show a second series in the 3D pane and keep it on the same world point as
+   * the primary (the brief: "linked scrolling across series of the same
+   * FrameOfReference").
+   *
+   * World position, not slice index: the two series will not share a slice
+   * grid - a 1 mm CT and a 4 mm T2 disagree about what "slice 40" means - but
+   * they do share millimetres when they share a FrameOfReference, and that is
+   * the only thing that stays true when either is reformatted.
+   */
+  async setLinkedSeries(series: SeriesDetail | null): Promise<boolean> {
+    this.unlink();
+    if (!series || this.mode !== 'mpr' || !this.engine) return false;
+
+    const el = this.elements.get('volume3d');
+    if (!el) return false;
+
+    const imageIds = (series.instances ?? []).map((i) => imageIdFor(i.sop_uid));
+    if (imageIds.length < 3) return false;
+
+    try {
+      await this.prefetchMetadata(imageIds, this.loadToken);
+      const volumeId = `cornerstoneStreamingImageVolume:${series.series_uid}`;
+      const volume = await volumeLoader.createAndCacheVolume(volumeId, { imageIds });
+      (volume as unknown as { load: (cb?: () => void) => void }).load();
+      this.linkedVolumeId = volumeId;
+
+      // Re-enable the element as an orthographic viewport in the plane the
+      // user is reading, so the two images are directly comparable.
+      const primary = useAppStore.getState().primaryPane;
+      const orientation =
+        primary === 'sagittal'
+          ? OrientationAxis.SAGITTAL
+          : primary === 'coronal'
+            ? OrientationAxis.CORONAL
+            : OrientationAxis.AXIAL;
+
+      this.engine.enableElement({
+        viewportId: VIEWPORT_ID.volume3d,
+        type: ViewportType.ORTHOGRAPHIC,
+        element: el,
+        defaultOptions: { orientation, background: [0, 0, 0] as Types.Point3 },
+      });
+      await setVolumesForViewports(this.engine, [{ volumeId }], [VIEWPORT_ID.volume3d]);
+
+      try {
+        ToolGroupManager.getToolGroup(TG_3D)?.removeViewports(ENGINE_ID, VIEWPORT_ID.volume3d);
+      } catch {
+        /* the 3D group may already be gone */
+      }
+      ToolGroupManager.getToolGroup(TG_MPR)?.addViewport(VIEWPORT_ID.volume3d, ENGINE_ID);
+
+      this.bindLinkSync(primary);
+      this.engine.render();
+      this.refreshPaneState('volume3d');
+      return true;
+    } catch (e) {
+      console.warn('[hnrad] could not link a second series', e);
+      this.unlink();
+      return false;
+    }
+  }
+
+  /** Push the primary pane's focal point into the linked viewport. */
+  private bindLinkSync(primary: PaneId): void {
+    const src = this.elements.get(primary);
+    if (!src) return;
+    let queued = false;
+    const handler = () => {
+      if (queued) return;
+      queued = true;
+      queueMicrotask(() => {
+        queued = false;
+        const from = this.getViewport(primary) as
+          | (Types.IViewport & { getCamera?: () => { focalPoint?: Types.Point3 } })
+          | null;
+        const to = this.getViewport('volume3d') as
+          | (Types.IViewport & {
+              setViewReference?: (r: unknown) => void;
+              getFrameOfReferenceUID?: () => string;
+              render?: () => void;
+            })
+          | null;
+        const focal = from?.getCamera?.()?.focalPoint;
+        if (!focal || !to?.setViewReference) return;
+        try {
+          const forUid = to.getFrameOfReferenceUID?.();
+          to.setViewReference({
+            FrameOfReferenceUID: forUid,
+            cameraFocalPoint: [focal[0], focal[1], focal[2]],
+          });
+          to.render?.();
+          this.refreshPaneState('volume3d');
+        } catch {
+          /* the linked volume may not cover this point */
+        }
+      });
+    };
+    src.addEventListener(Enums.Events.CAMERA_MODIFIED, handler);
+    this.linkSync = () => src.removeEventListener(Enums.Events.CAMERA_MODIFIED, handler);
+  }
+
+  /** Drop the link and put the 3D volume viewport back. */
+  unlink(): void {
+    this.linkSync?.();
+    this.linkSync = null;
+    if (!this.linkedVolumeId) return;
+    this.linkedVolumeId = null;
+    const el = this.elements.get('volume3d');
+    if (!this.engine || !el || !this.volumeId) return;
+    try {
+      this.engine.enableElement({
+        viewportId: VIEWPORT_ID.volume3d,
+        type: ViewportType.VOLUME_3D,
+        element: el,
+        defaultOptions: {
+          orientation: OrientationAxis.CORONAL,
+          background: [0.039, 0.047, 0.063] as Types.Point3,
+        },
+      });
+      const volumeId = this.volumeId;
+      void setVolumesForViewports(this.engine, [{ volumeId }], [VIEWPORT_ID.volume3d]).then(() => {
+        const vp3d = this.getViewport('volume3d') as
+          | (Types.IViewport & { setProperties?: (p: unknown) => void })
+          | null;
+        vp3d?.setProperties?.({ preset: useAppStore.getState().volumePresetId });
+        this.resetVolumeCamera();
+      });
+      try {
+        ToolGroupManager.getToolGroup(TG_MPR)?.removeViewports(ENGINE_ID, VIEWPORT_ID.volume3d);
+      } catch {
+        /* not a member */
+      }
+      ToolGroupManager.getToolGroup(TG_3D)?.addViewport(VIEWPORT_ID.volume3d, ENGINE_ID);
+    } catch (e) {
+      console.warn('[hnrad] could not restore the 3D viewport', e);
+    }
+  }
+
+  get isLinked(): boolean {
+    return this.linkedVolumeId !== null;
   }
 
   /** Parse every instance header so the metadata providers can answer. */
@@ -920,6 +1265,88 @@ class ViewerCore {
     );
   }
 
+  /**
+   * Slice numbering, and why it needs help.
+   *
+   * Two different indices are in play and they do not agree:
+   *
+   *   - **k**, the DICOM slice index: the position of the image in the series
+   *     sorted ascending by `slice_pos` (CONTRACT.md). Everything outside the
+   *     viewer speaks k — the airway profile's `sample_k`, a carotid result's
+   *     `sliceIndex`, every finding's jump target, the backend's voxel arrays.
+   *   - the **viewport index**, which Cornerstone counts along the camera's
+   *     view direction. For its AXIAL orientation the camera looks down -z, so
+   *     this index runs *backwards* relative to k.
+   *
+   * On a 180-slice phantom that meant the overlay said "slice 116" while the
+   * pixels on screen were DICOM slice 65, and a finding that jumped to its own
+   * slice landed on the mirror image of it. So: report k, and translate on the
+   * way back into a scroll.
+   */
+  private sliceAxis(pane: PaneId): 0 | 1 | 2 | null {
+    // i runs left-right (sagittal), j anterior-posterior (coronal),
+    // k inferior-superior (axial).
+    if (pane === 'sagittal') return 0;
+    if (pane === 'coronal') return 1;
+    if (pane === 'axial') return 2;
+    return null;
+  }
+
+  /** The DICOM slice index under a pane's camera, or null when unavailable. */
+  private sliceIndexFromCamera(pane: PaneId): number | null {
+    if (this.mode !== 'mpr') return null;
+    const axis = this.sliceAxis(pane);
+    if (axis === null) return null;
+    const vol = this.getCtVolume();
+    if (!vol?.imageData || !vol.dimensions) return null;
+    const vp = this.getViewport(pane) as
+      | (Types.IViewport & { getCamera?: () => { focalPoint?: Types.Point3 } })
+      | null;
+    const focal = vp?.getCamera?.()?.focalPoint;
+    if (!focal) return null;
+    try {
+      const idx = csUtils.transformWorldToIndex(vol.imageData, focal) as number[];
+      const raw = Math.round(idx[axis]);
+      const limit = vol.dimensions[axis];
+      if (!Number.isFinite(raw) || !Number.isFinite(limit)) return null;
+      return Math.max(0, Math.min(limit - 1, raw));
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Whether this pane's viewport index runs backwards relative to k.
+   *
+   * Self-calibrating rather than assumed: compare the two indices at the
+   * current position. If they sum to `total - 1` the axis is mirrored; if they
+   * match, it is not. Anything else (an oblique camera after a crosshair
+   * rotation) returns null and the caller falls back to the viewport's own
+   * numbering, which is at least self-consistent.
+   */
+  /**
+   * Translate a viewport slice index (e.g. the one Cornerstone stamps into an
+   * annotation's metadata) into the DICOM index the rest of Margin uses.
+   */
+  private toDicomSlice(pane: PaneId, vpIndex: number | null | undefined): number | null {
+    if (typeof vpIndex !== 'number' || !Number.isFinite(vpIndex)) return null;
+    const vp = this.getViewport(pane) as (Types.IViewport & { getNumberOfSlices?: () => number }) | null;
+    const total = vp?.getNumberOfSlices?.() ?? 0;
+    return this.sliceMirrored(pane, total) === true ? total - 1 - vpIndex : vpIndex;
+  }
+
+  private sliceMirrored(pane: PaneId, total: number): boolean | null {
+    const vp = this.getViewport(pane) as (Types.IViewport & { getSliceIndex?: () => number }) | null;
+    const vpIndex = vp?.getSliceIndex?.();
+    const camIndex = this.sliceIndexFromCamera(pane);
+    if (typeof vpIndex !== 'number' || camIndex === null || !Number.isFinite(total) || total <= 1) {
+      return null;
+    }
+    if (Math.abs(camIndex - vpIndex) <= 1) return false;
+    if (Math.abs(camIndex + vpIndex - (total - 1)) <= 1) return true;
+    return null;
+  }
+
   refreshPaneState(pane: PaneId): void {
     const vp = this.getViewport(pane) as
       | (Types.IViewport & {
@@ -931,8 +1358,11 @@ class ViewerCore {
       | null;
     if (!vp) return;
     try {
-      const slice = vp.getSliceIndex?.() ?? 0;
+      const vpIndex = vp.getSliceIndex?.() ?? 0;
       const total = vp.getNumberOfSlices?.() ?? 0;
+      // Report the DICOM index so the overlay, the scrubber and every finding
+      // are counting the same slices.
+      const slice = this.sliceMirrored(pane, total) === null ? vpIndex : (this.sliceIndexFromCamera(pane) ?? vpIndex);
       const voi = vp.getProperties?.()?.voiRange;
       const zoom = vp.getZoom?.();
       const patch: Record<string, number> = {
@@ -966,7 +1396,12 @@ class ViewerCore {
     if (!vp?.getSliceIndex || !vp.getNumberOfSlices) return;
     let plan: ReturnType<typeof planSliceJump> = null;
     try {
-      plan = planSliceJump(vp.getSliceIndex(), vp.getNumberOfSlices(), index);
+      const total = vp.getNumberOfSlices();
+      // `index` is a DICOM slice index; mirror it into the viewport's own
+      // numbering before asking Cornerstone to scroll there.
+      const mirrored = this.sliceMirrored(pane, total);
+      const target = mirrored === true ? total - 1 - index : index;
+      plan = planSliceJump(vp.getSliceIndex(), total, target);
     } catch {
       return; /* no volume on the viewport yet */
     }
@@ -995,13 +1430,16 @@ class ViewerCore {
       if (!a.annotationUID) continue;
       const stats = firstStats(a.data?.cachedStats as Record<string, unknown> | undefined);
       const { value, extra } = describeAnnotation(toolName, stats);
+      const pane = this.paneForAnnotation(a);
       list.push({
         uid: a.annotationUID,
         toolName: MEASUREMENT_LABEL[toolName] ?? toolName,
         value,
         extra,
-        paneId: this.paneForAnnotation(a),
-        sliceIndex: typeof a.metadata?.sliceIndex === 'number' ? a.metadata.sliceIndex : null,
+        paneId: pane,
+        // Cornerstone stamps its own viewport index; translate so a
+        // measurement row and a finding row agree about "slice 116".
+        sliceIndex: this.toDicomSlice(pane, a.metadata?.sliceIndex),
       });
     }
     this.derived.forEach((m) => list.push(m));
@@ -1117,6 +1555,7 @@ class ViewerCore {
 
   applyWindow(ww: number, wc: number, presetId?: string): void {
     if (!this.engine) return;
+    this.appliedWindow = { ww, wc };
     const voiRange = csUtils.windowLevel.toLowHighRange(ww, wc);
     const targets: PaneId[] = this.mode === 'stack' ? ['stack'] : MPR_PANES;
     targets.forEach((p) => {
@@ -1268,8 +1707,8 @@ class ViewerCore {
         this.setSlice(pane, 0);
         return;
       }
-      this.scrollPane(pane, 1);
-    }, 60);
+      this.setSlice(pane, p.slice + 1);
+    }, useAppStore.getState().cineMs);
   }
 
   stopCine(): void {
@@ -1327,13 +1766,20 @@ class ViewerCore {
           paneId: pane,
         },
       });
+
+      // Same world point, no second transform: the labelmap sampler answers
+      // "which structure is this" and only wakes React when the answer moves.
+      anatomyProbe.push([world[0], world[1], world[2]]);
     } catch {
       /* outside the volume */
     }
   }
 
   clearProbe(): void {
-    useAppStore.getState().set({ probe: { hu: null, lps: null, ijk: null, paneId: null } });
+    useAppStore.getState().set({
+      probe: { hu: null, lps: null, ijk: null, paneId: null },
+      anatomy: { name: null, color: null, segmentationId: null, segmentIndex: null },
+    });
   }
 
   /* ---------------- screenshot ---------------- */
@@ -1415,6 +1861,9 @@ class ViewerCore {
   }
 
   destroy(): void {
+    this.linkSync?.();
+    this.linkSync = null;
+    this.linkedVolumeId = null;
     this.stopCine();
     this.resizeObserver?.disconnect();
     this.teardownEngine();

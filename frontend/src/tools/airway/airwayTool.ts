@@ -129,7 +129,7 @@ class AirwayTool {
     }
     this.disarm();
     useAirwayStore.getState().set({ ...FRESH, phase: 'seed' });
-    app.set({ panelTab: 'tools', panelOpen: true, screen: 'view' });
+    app.set({ panelTab: 'structures', panelOpen: true, askOpen: false, screen: 'read' });
     this.armSeed();
   }
 
@@ -154,9 +154,10 @@ class AirwayTool {
 
   /* ---------------- step 1: the seed ---------------- */
 
+  /** Re-arming after a bad click keeps the hint that explains why. */
   armSeed(): void {
     this.disarm();
-    useAirwayStore.getState().set({ phase: 'seed', picking: 'seed', hint: null });
+    useAirwayStore.getState().set({ phase: 'seed', picking: 'seed' });
     this.pick = armPick(
       (p) => {
         this.pick = null;

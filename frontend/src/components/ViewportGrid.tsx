@@ -1,88 +1,131 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { Maximize2, Minimize2, TriangleAlert } from 'lucide-react';
+/**
+ * The viewport stage (UI-OVERHAUL.md §3).
+ *
+ *   "primary viewport (the plane being read) + 236 px context strip
+ *    (SAG, COR, 3D structures) with 2 px gutters. Layout switch:
+ *    primary+strip (default), 2x2, 1x1."
+ *
+ * Why primary+strip and not a 2x2: reading happens in one plane. A 2x2 gives
+ * four small images and no working view; this gives one big one and keeps the
+ * other planes where the eye can still use them for orientation.
+ *
+ * Every pane carries the signature scrubber with findings on it, and the
+ * primary pane carries the anatomy chip.
+ */
+import { useEffect, useMemo, useRef, type CSSProperties } from 'react';
+
 import { PANE_META, useAppStore, type PaneId } from '../store/useAppStore';
 import { viewer } from '../viewer/ViewerCore';
-import { VOLUME_PRESETS } from '../viewer/presets';
+import { volumePresetsFor } from '../viewer/presets';
+import {
+  formatIntensity,
+  inferSequenceKind,
+  intensityUnit,
+  normaliseModality,
+  SEQUENCE_LABEL,
+} from '../viewer/modality';
 import { formatDicomDate, formatPersonName } from '../api/client';
+import { deriveFindings, scrubberMarkers } from '../findings';
+import { useStructureStore } from '../labels/structureStore';
+import { useCarotidStore } from '../tools/carotid';
+import { useAirwayStore } from '../tools/airway';
+import { Banner, Button, Icon, MarginMark, Scrubber, WithTooltip } from '../ui';
+import type { ScrubberMarker } from '../ui';
 
 const MPR_ORDER: PaneId[] = ['axial', 'sagittal', 'coronal', 'volume3d'];
+const SCRUB_PANES: PaneId[] = ['axial', 'sagittal', 'coronal', 'stack'];
 
-/* ---------------- slice scrubber ---------------- */
+/* ------------------------------------------------------------------ */
+/* findings -> scrubber markers                                        */
+/* ------------------------------------------------------------------ */
 
-function Scrubber({ id, slice, total }: { id: PaneId; slice: number; total: number }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [hover, setHover] = useState<{ x: number; index: number } | null>(null);
-  const dragging = useRef(false);
+/**
+ * Derived once for the stage and handed to every pane, so four scrubbers cost
+ * one derivation rather than four.
+ */
+function useFindingMarkers(): Partial<Record<PaneId, ScrubberMarker[]>> {
+  const series = useAppStore((s) => s.activeSeries);
+  const measurements = useAppStore((s) => s.measurements);
+  const structures = useStructureStore((s) => s.items);
+  const carotid = useCarotidStore((s) => s.result);
+  const airwayResult = useAirwayStore((s) => s.result);
+  const glottis = useAirwayStore((s) => s.glottisSlice);
 
-  if (total <= 1) return null;
-
-  const indexAt = (clientX: number): { index: number; x: number } => {
-    const el = ref.current;
-    if (!el) return { index: slice, x: 0 };
-    const r = el.getBoundingClientRect();
-    const t = Math.min(Math.max((clientX - r.left) / r.width, 0), 1);
-    return { index: Math.round(t * (total - 1)), x: clientX - r.left };
-  };
-
-  return (
-    <div
-      className="scrub"
-      ref={ref}
-      onPointerDown={(e) => {
-        e.stopPropagation();
-        dragging.current = true;
-        (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
-        viewer.setSlice(id, indexAt(e.clientX).index);
-      }}
-      onPointerUp={(e) => {
-        dragging.current = false;
-        (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
-      }}
-      onPointerMove={(e) => {
-        const at = indexAt(e.clientX);
-        setHover(at);
-        if (dragging.current) viewer.setSlice(id, at.index);
-      }}
-      onPointerLeave={() => setHover(null)}
-      title="Drag to scroll slices"
-    >
-      <div className="scrub-track">
-        <div className="scrub-fill" style={{ width: `${((slice + 1) / total) * 100}%` }} />
-      </div>
-      {hover && (
-        <span className="scrub-tip" style={{ left: hover.x }}>
-          {hover.index + 1} / {total}
-        </span>
-      )}
-    </div>
-  );
+  return useMemo(() => {
+    const findings = deriveFindings({
+      modality: series?.modality ?? null,
+      sequenceKind: series ? inferSequenceKind(series) : null,
+      carotid,
+      airway: airwayResult,
+      airwayGlottisMarked: glottis !== null,
+      structures,
+      measurements,
+    });
+    const byPane: Partial<Record<PaneId, ScrubberMarker[]>> = {};
+    SCRUB_PANES.forEach((p) => {
+      byPane[p] = scrubberMarkers(findings, p);
+    });
+    return byPane;
+  }, [series, carotid, airwayResult, glottis, structures, measurements]);
 }
 
-/* ---------------- one viewport ---------------- */
+/* ------------------------------------------------------------------ */
+/* one viewport                                                        */
+/* ------------------------------------------------------------------ */
 
-function Pane({ id, visible }: { id: PaneId; visible: boolean }) {
+interface PaneProps {
+  id: PaneId;
+  visible: boolean;
+  /** The big one. Carries the anatomy chip and the full overlay set. */
+  primary: boolean;
+  markers: ScrubberMarker[];
+}
+
+function Pane({ id, visible, primary, markers }: PaneProps) {
   const meta = PANE_META[id];
   const activePane = useAppStore((s) => s.activePane);
   const maximized = useAppStore((s) => s.maximized);
+  const grid = useAppStore((s) => s.grid);
   const pane = useAppStore((s) => s.panes[id]);
   const series = useAppStore((s) => s.activeSeries);
   const study = useAppStore((s) => s.activeStudy);
   const volumePresetId = useAppStore((s) => s.volumePresetId);
   const loading = useAppStore((s) => s.loading);
+  const probe = useAppStore((s) => s.probe);
+  const anatomy = useAppStore((s) => s.anatomy);
+  const windowSource = useAppStore((s) => s.windowSource);
   const set = useAppStore((s) => s.set);
   const hostRef = useRef<HTMLDivElement | null>(null);
 
+  const compare = useAppStore((s) => s.compareSeries);
   const isActive = activePane === id;
   const is3d = id === 'volume3d';
-  const preset = VOLUME_PRESETS.find((p) => p.id === volumePresetId);
+  const linkedLabel = compare ? (compare.description || compare.modality || 'series') : null;
+  const preset = volumePresetsFor(series?.modality).find((p) => p.id === volumePresetId);
   const streaming = loading.active && pane.total === 0;
 
+  const modality = normaliseModality(series?.modality);
+  const seqKind = series ? inferSequenceKind(series) : null;
+  const unit = intensityUnit(modality, seqKind);
+
   const toggleMax = () => set({ maximized: maximized === id ? null : id, activePane: id });
+  /** Clicking a strip pane promotes it to primary — the fastest plane switch. */
+  const promote = () => set({ primaryPane: id, activePane: id });
+
+  const paneClass = [
+    'pane',
+    isActive ? 'active' : '',
+    primary ? 'primary' : '',
+    visible ? '' : 'hidden',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <div
-      className={`pane${isActive ? ' active' : ''}${visible ? '' : ' hidden'}`}
+      className={paneClass}
       style={{ '--plane': meta.color } as CSSProperties}
+      data-pane={id}
       onPointerDown={() => set({ activePane: id })}
       onDoubleClick={toggleMax}
       onContextMenu={(e) => e.preventDefault()}
@@ -104,31 +147,41 @@ function Pane({ id, visible }: { id: PaneId; visible: boolean }) {
       />
 
       {streaming && (
-        <div className="skeleton">
-          <div>{series?.description || meta.label}</div>
-          <div className="bar">
-            <i />
+        <div className="pane-skeleton">
+          <MarginMark size={26} progress={loading.total > 0 ? loading.loaded / loading.total : null} />
+          <div className="ps-name">{series?.description || meta.label}</div>
+          <div className="ps-sub mono">
+            {loading.total > 0 ? `${loading.loaded} / ${loading.total}` : loading.label}
           </div>
         </div>
       )}
 
-      <div className="ov tl">
-        <div>{formatPersonName(study?.patient_name)}</div>
-        <div className="dim">
-          {study?.patient_id ?? '—'} · {formatDicomDate(study?.study_date)}
+      {/* top-left: who and when. Only on the primary — four copies is noise. */}
+      {primary && (
+        <div className="ov tl">
+          <div>{formatPersonName(study?.patient_name)}</div>
+          <div className="dim">
+            {study?.patient_id ?? '—'} · {formatDicomDate(study?.study_date)}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="ov tr">
-        <div className="ov-plane">{meta.label}</div>
-        <div className="dim">{series?.description || series?.modality || '—'}</div>
+        <div className="ov-plane">{is3d && linkedLabel ? 'Linked' : meta.label}</div>
+        {primary && (
+          <div className="dim">
+            {series?.description || series?.modality || '—'}
+            {seqKind ? ` · ${SEQUENCE_LABEL[seqKind]}` : ''}
+          </div>
+        )}
         {!is3d && pane.total > 0 && (
           <div>
             <span className="hi">{pane.slice + 1}</span>
             <span className="dim"> / {pane.total}</span>
           </div>
         )}
-        {is3d && preset && <div className="ac">{preset.label}</div>}
+        {is3d && linkedLabel && <div className="ac">{linkedLabel}</div>}
+        {is3d && !linkedLabel && preset && <div className="ac">{preset.label}</div>}
       </div>
 
       <div className="ov bl">
@@ -136,17 +189,39 @@ function Pane({ id, visible }: { id: PaneId; visible: boolean }) {
           <>
             <div>
               W {pane.ww} <span className="dim">/</span> L {pane.wc}
+              {primary && windowSource !== 'preset' && windowSource !== 'fallback' && (
+                <span className="dim" title={`window from ${windowSource}`}>
+                  {' '}
+                  auto
+                </span>
+              )}
             </div>
-            <div className="dim">{pane.zoom ? `${pane.zoom.toFixed(2)}×` : ''}</div>
+            {primary && <div className="dim">{pane.zoom ? `${pane.zoom.toFixed(2)}×` : ''}</div>}
           </>
         ) : (
           <div className="dim">drag rotate · right pan · wheel zoom</div>
         )}
       </div>
 
-      <div className="ov br">
-        <div className="dim">{meta.short}</div>
-      </div>
+      {/* bottom-right: the anatomy chip (UI-OVERHAUL.md §2). */}
+      {primary && !is3d && (anatomy.name !== null || probe.hu !== null) ? (
+        <div className="anat-chip">
+          {anatomy.name !== null && (
+            <>
+              <span className="anat-sw" style={{ background: anatomy.color ?? 'var(--text-3)' }} />
+              <span className="anat-name">{anatomy.name}</span>
+            </>
+          )}
+          <span className="anat-hu mono">{formatIntensity(probe.hu, modality, seqKind)}</span>
+          {probe.hu !== null && modality !== 'CT' && <span className="anat-unit">{unit.short}</span>}
+        </div>
+      ) : (
+        !is3d && (
+          <div className="ov br">
+            <div className="dim">{meta.short}</div>
+          </div>
+        )
+      )}
 
       {!is3d && (
         <>
@@ -157,28 +232,58 @@ function Pane({ id, visible }: { id: PaneId; visible: boolean }) {
         </>
       )}
 
-      {!is3d && <Scrubber id={id} slice={pane.slice} total={pane.total} />}
+      {!is3d && pane.total > 1 && (
+        <Scrubber
+          slice={pane.slice}
+          total={pane.total}
+          markers={markers}
+          onScrub={(i) => viewer.setSlice(id, i)}
+          onMarker={(fid) => {
+            const m = markers.find((x) => x.id === fid);
+            if (!m) return;
+            set({ selectedFinding: fid, panelTab: 'findings', panelOpen: true });
+            viewer.setSlice(id, m.slice);
+          }}
+          accent={meta.color}
+        />
+      )}
 
       <div className="pane-actions">
-        <button className="pane-act" title="Maximize / restore (F)" onClick={toggleMax}>
-          {maximized === id ? <Minimize2 size={12} strokeWidth={1.8} /> : <Maximize2 size={12} strokeWidth={1.8} />}
-        </button>
+        {!primary && grid === 'strip' && !is3d && (
+          <WithTooltip label="Read this plane" placement="left">
+            <button type="button" className="pane-act" aria-label="Make primary" onClick={promote}>
+              <Icon name="layoutStrip" size={12} />
+            </button>
+          </WithTooltip>
+        )}
+        <WithTooltip label={maximized === id ? 'Restore' : 'Maximize'} hotkey="F" placement="left">
+          <button type="button" className="pane-act" aria-label="Maximize or restore" onClick={toggleMax}>
+            <Icon name={maximized === id ? 'minimize' : 'maximize'} size={12} />
+          </button>
+        </WithTooltip>
       </div>
     </div>
   );
 }
 
-/* ---------------- grid ---------------- */
+/* ------------------------------------------------------------------ */
+/* the stage                                                           */
+/* ------------------------------------------------------------------ */
 
 export function ViewportGrid() {
   const layout = useAppStore((s) => s.layout);
   const grid = useAppStore((s) => s.grid);
+  const primaryPane = useAppStore((s) => s.primaryPane);
   const maximized = useAppStore((s) => s.maximized);
   const series = useAppStore((s) => s.activeSeries);
   const loading = useAppStore((s) => s.loading);
   const viewerError = useAppStore((s) => s.viewerError);
+  const askOpen = useAppStore((s) => s.askOpen);
+  const compare = useAppStore((s) => s.compareSeries);
+  const set = useAppStore((s) => s.set);
   const stageRef = useRef<HTMLDivElement>(null);
   const shownUid = useRef<string | null>(null);
+  const markers = useFindingMarkers();
 
   useEffect(() => {
     viewer.observeStage(stageRef.current);
@@ -200,46 +305,63 @@ export function ViewportGrid() {
     });
   }, [series]);
 
+  /**
+   * The linked series takes over the 3D pane. Driven from the store rather
+   * than from the Library click so that closing the primary series, or the
+   * user unlinking from anywhere, tears it down through one path.
+   */
+  useEffect(() => {
+    if (layout !== 'mpr') return;
+    void viewer.setLinkedSeries(compare).then((ok) => {
+      if (compare && !ok) {
+        useAppStore.getState().toast({
+          kind: 'err',
+          title: 'Could not link that series',
+          message: 'It needs at least three slices sharing one orientation.',
+        });
+        useAppStore.getState().set({ compareSeries: null });
+      }
+    });
+  }, [compare, layout]);
+
+  // Any layout change resizes the WebGL canvases; one rAF is not enough
+  // because the CSS grid has to settle first.
   useEffect(() => {
     const t = window.setTimeout(() => viewer.resize(), 70);
     return () => window.clearTimeout(t);
-  }, [maximized, layout, grid]);
+  }, [maximized, layout, grid, primaryPane, askOpen]);
 
   if (layout === 'none') {
     return (
       <div className="stage" ref={stageRef}>
-        <div className="empty">
-          <svg width="128" height="92" viewBox="0 0 128 92" fill="none" className="art" aria-hidden>
-            <rect x="0.5" y="0.5" width="61" height="43" rx="2" stroke="currentColor" strokeOpacity=".6" />
-            <rect x="66.5" y="0.5" width="61" height="43" rx="2" stroke="currentColor" strokeOpacity=".4" />
-            <rect x="0.5" y="48.5" width="61" height="43" rx="2" stroke="currentColor" strokeOpacity=".4" />
-            <rect x="66.5" y="48.5" width="61" height="43" rx="2" stroke="currentColor" strokeOpacity=".25" />
-            <path d="M31 8v28M17 22h28" stroke="var(--accent)" strokeOpacity=".45" strokeDasharray="2 3" />
-            <circle cx="31" cy="22" r="8.5" stroke="var(--accent)" strokeOpacity=".7" />
-          </svg>
-          <h2>No series open</h2>
+        <div className="mg-empty stage-empty">
+          <MarginMark size={44} />
+          <h3>No series open</h3>
           <p>
-            Open the Library and pick a series. Volumetric CT opens as linked axial, sagittal and coronal
-            MPR plus a 3D render; single slices and scouts open as a stack.
+            Open the Library and pick a series. A volumetric study opens as a primary plane with a
+            context strip; thick MR opens in its acquired plane; scouts open as a stack.
           </p>
-          <div className="empty-actions">
-            <button
-              className="btn primary"
-              onClick={() => useAppStore.getState().set({ screen: 'library' })}
-            >
-              Go to the library
-            </button>
-          </div>
+          <Button tone="primary" icon="library" onClick={() => set({ screen: 'library' })}>
+            Go to the library
+          </Button>
         </div>
       </div>
     );
   }
 
   const panes: PaneId[] = layout === 'mpr' ? MPR_ORDER : ['stack'];
-  const effectiveGrid = layout === 'stack' || maximized !== null ? '1x1' : grid;
-  const visibleCount = effectiveGrid === '1x1' ? 1 : effectiveGrid === '1x2' ? 2 : 4;
-  const visible = (p: PaneId, i: number) => (maximized ? maximized === p : i < visibleCount);
+  const primary: PaneId = layout === 'mpr' ? primaryPane : 'stack';
+  const strip = panes.filter((p) => p !== primary);
+
+  const effective = layout === 'stack' || maximized !== null ? '1x1' : grid;
+  const visible = (p: PaneId): boolean => {
+    if (maximized) return maximized === p;
+    if (effective === '1x1') return p === primary;
+    return true;
+  };
+
   const pct = loading.total > 0 ? Math.round((loading.loaded / loading.total) * 100) : 0;
+  const ordered: PaneId[] = effective === 'strip' ? [primary, ...strip] : panes;
 
   return (
     <div className="stage" ref={stageRef}>
@@ -249,16 +371,23 @@ export function ViewportGrid() {
         </div>
       )}
 
-      <div className={`grid q${effectiveGrid}`}>
-        {panes.map((p, i) => (
-          <Pane key={p} id={p} visible={visible(p, i)} />
+      <div className={`grid g-${effective}`}>
+        {ordered.map((p) => (
+          <Pane
+            key={p}
+            id={p}
+            visible={visible(p)}
+            primary={effective === '2x2' ? false : p === primary}
+            markers={markers[p] ?? []}
+          />
         ))}
       </div>
 
       {viewerError && (
         <div className="err-banner">
-          <TriangleAlert size={15} strokeWidth={1.8} />
-          <span className="msg">{viewerError}</span>
+          <Banner kind="err" icon="warningCircle">
+            {viewerError}
+          </Banner>
         </div>
       )}
     </div>

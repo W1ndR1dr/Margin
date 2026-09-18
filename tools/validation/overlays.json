@@ -1,0 +1,56 @@
+[
+ {
+  "structure": "carotid_left",
+  "tag": "worst",
+  "case": "case_01",
+  "dice": 0.392,
+  "path": "C:\\Users\\o948145\\hnrad\\tools\\validation\\overlays\\carotid_left_worst_case_01_dice0.39.png",
+  "slice_k": 114,
+  "kb": 22.9
+ },
+ {
+  "structure": "carotid_left",
+  "tag": "best",
+  "case": "case_05",
+  "dice": 0.685,
+  "path": "C:\\Users\\o948145\\hnrad\\tools\\validation\\overlays\\carotid_left_best_case_05_dice0.69.png",
+  "slice_k": 53,
+  "kb": 23.8
+ },
+ {
+  "structure": "carotid_right",
+  "tag": "worst",
+  "case": "case_05",
+  "dice": 0.535,
+  "path": "C:\\Users\\o948145\\hnrad\\tools\\validation\\overlays\\carotid_right_worst_case_05_dice0.54.png",
+  "slice_k": 47,
+  "kb": 23.9
+ },
+ {
+  "structure": "carotid_right",
+  "tag": "best",
+  "case": "case_12",
+  "dice": 0.71,
+  "path": "C:\\Users\\o948145\\hnrad\\tools\\validation\\overlays\\carotid_right_best_case_12_dice0.71.png",
+  "slice_k": 40,
+  "kb": 22.2
+ },
+ {
+  "structure": "mandible",
+  "tag": "worst",
+  "case": "case_01",
+  "dice": 0.926,
+  "path": "C:\\Users\\o948145\\hnrad\\tools\\validation\\overlays\\mandible_worst_case_01_dice0.93.png",
+  "slice_k": 9,
+  "kb": 40.5
+ },
+ {
+  "structure": "mandible",
+  "tag": "best",
+  "case": "case_12",
+  "dice": 0.935,
+  "path": "C:\\Users\\o948145\\hnrad\\tools\\validation\\overlays\\mandible_best_case_12_dice0.94.png",
+  "slice_k": 9,
+  "kb": 48.9
+ }
+]

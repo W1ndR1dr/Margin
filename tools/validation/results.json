@@ -1,0 +1,2529 @@
+{
+ "cases": {
+  "case_01": {
+   "series_uid": "1.2.826.0.1.3680043.10.1337.903562943578977397084896223046202589",
+   "n_slices": 202,
+   "ct_shape": [
+    202,
+    1024,
+    1024
+   ],
+   "ct_spacing_zyx": [
+    2.0,
+    0.5576,
+    0.5576
+   ],
+   "grid_check": {
+    "mask_shape": [
+     202,
+     1024,
+     1024
+    ],
+    "ct_shape": [
+     202,
+     1024,
+     1024
+    ],
+    "shape_match": true,
+    "spacing_match": true,
+    "origin_match": true,
+    "direction_match": true
+   },
+   "metrics": {
+    "carotid_left": {
+     "dice": 0.3918475444757902,
+     "hd95_mm": 35.61018798489271,
+     "msd_mm": 7.630811479197955,
+     "volume_ratio": 0.3806836248012719,
+     "centroid_dist_mm": 62.91775734395149,
+     "gt_voxels": 12580,
+     "pred_voxels": 4789,
+     "gt_ml": 7.823173103332519,
+     "pred_ml": 2.9781538944244383,
+     "hd_max_mm": 42.01480391137369,
+     "status": "ok",
+     "quality": "approx",
+     "pred_components": [
+      [
+       "headneck_bones_vessels",
+       "internal_carotid_artery_left"
+      ],
+      [
+       "total",
+       "common_carotid_artery_left"
+      ]
+     ],
+     "gt_grid_matched_ct": true,
+     "dice_z": 0.4046613948510613,
+     "hd95_z_mm": 35.61018798489271,
+     "msd_z_mm": 7.6533553470247355,
+     "volume_ratio_z": 0.33696343402225754,
+     "gt_z_slices": 116
+    },
+    "carotid_right": {
+     "dice": 0.610671374067536,
+     "hd95_mm": 20.729654011836267,
+     "msd_mm": 3.3483094093047723,
+     "volume_ratio": 0.7399187555731696,
+     "centroid_dist_mm": 40.571390074475445,
+     "gt_voxels": 10093,
+     "pred_voxels": 7468,
+     "gt_ml": 6.27657282447815,
+     "pred_ml": 4.644153953552246,
+     "hd_max_mm": 31.241865106337215,
+     "status": "ok",
+     "quality": "approx",
+     "pred_components": [
+      [
+       "headneck_bones_vessels",
+       "internal_carotid_artery_right"
+      ],
+      [
+       "total",
+       "common_carotid_artery_right"
+      ]
+     ],
+     "gt_grid_matched_ct": true,
+     "dice_z": 0.6592893151358662,
+     "hd95_z_mm": 20.729654011836267,
+     "msd_z_mm": 2.948062707074643,
+     "volume_ratio_z": 0.6116120083225998,
+     "gt_z_slices": 98
+    },
+    "mandible": {
+     "dice": 0.9258352645068217,
+     "hd95_mm": 3.1543591566993645,
+     "msd_mm": 0.4735771920118936,
+     "volume_ratio": 0.9831086222114008,
+     "centroid_dist_mm": 1.1781823570392203,
+     "gt_voxels": 131428,
+     "pred_voxels": 129208,
+     "gt_ml": 81.73163709259033,
+     "pred_ml": 80.3510771331787,
+     "hd_max_mm": 7.413983584788951,
+     "status": "ok",
+     "quality": "exact",
+     "pred_components": [
+      [
+       "craniofacial_structures",
+       "mandible"
+      ]
+     ],
+     "gt_grid_matched_ct": true
+    },
+    "parotid_left": {
+     "dice": 0.6136922915133032,
+     "hd95_mm": 16.703861511771958,
+     "msd_mm": 4.1511233721116545,
+     "volume_ratio": 0.49240379182622895,
+     "centroid_dist_mm": 5.518232987184413,
+     "gt_voxels": 31858,
+     "pred_voxels": 15687,
+     "gt_ml": 19.811657291412352,
+     "pred_ml": 9.755335172653199,
+     "hd_max_mm": 22.363559568580616,
+     "status": "ok",
+     "quality": "exact",
+     "pred_components": [
+      [
+       "head_glands_cavities",
+       "parotid_gland_left"
+      ]
+     ],
+     "gt_grid_matched_ct": true
+    },
+    "parotid_right": {
+     "dice": 0.3930131004366812,
+     "hd95_mm": 26.119317344752872,
+     "msd_mm": 7.477537891956621,
+     "volume_ratio": 0.250894707101149,
+     "centroid_dist_mm": 11.56085472953326,
+     "gt_voxels": 26545,
+     "pred_voxels": 6660,
+     "gt_ml": 16.507641496658326,
+     "pred_ml": 4.141679878234863,
+     "hd_max_mm": 28.142129877955007,
+     "status": "ok",
+     "quality": "exact",
+     "pred_components": [
+      [
+       "head_glands_cavities",
+       "parotid_gland_right"
+      ]
+     ],
+     "gt_grid_matched_ct": true
+    },
+    "submandibular_left": {
+     "dice": 0.830518697225573,
+     "hd95_mm": 4.5798461595043305,
+     "msd_mm": 1.1781875276824243,
+     "volume_ratio": 0.7924324324324323,
+     "centroid_dist_mm": 2.4669470523441315,
+     "gt_voxels": 18500,
+     "pred_voxels": 14660,
+     "gt_ml": 11.504666328430176,
+     "pred_ml": 9.116670722961425,
+     "hd_max_mm": 7.179613247924327,
+     "status": "ok",
+     "quality": "exact",
+     "pred_components": [
+      [
+       "head_glands_cavities",
+       "submandibular_gland_left"
+      ]
+     ],
+     "gt_grid_matched_ct": true
+    },
+    "submandibular_right": {
+     "dice": 0.8243774574049804,
+     "hd95_mm": 3.897913467566304,
+     "msd_mm": 1.1044917521705584,
+     "volume_ratio": 0.8250313938886563,
+     "centroid_dist_mm": 1.265664572519181,
+     "gt_voxels": 16723,
+     "pred_voxels": 13797,
+     "gt_ml": 10.399596487045288,
+     "pred_ml": 8.579993585586548,
+     "hd_max_mm": 4.8887588791948255,
+     "status": "ok",
+     "quality": "exact",
+     "pred_components": [
+      [
+       "head_glands_cavities",
+       "submandibular_gland_right"
+      ]
+     ],
+     "gt_grid_matched_ct": true
+    },
+    "thyroid_gland": {
+     "dice": 0.832105285574343,
+     "hd95_mm": 2.2899230797521652,
+     "msd_mm": 0.775012091894673,
+     "volume_ratio": 1.1702638998012664,
+     "centroid_dist_mm": 0.4409300341484911,
+     "gt_voxels": 21637,
+     "pred_voxels": 25321,
+     "gt_ml": 13.455484613418578,
+     "pred_ml": 15.746467897415162,
+     "hd_max_mm": 5.588909505616914,
+     "status": "ok",
+     "quality": "exact",
+     "pred_components": [
+      [
+       "total",
+       "thyroid_gland"
+      ]
+     ],
+     "gt_grid_matched_ct": true
+    },
+    "eye_left": {
+     "dice": 0.8862103208574461,
+     "hd95_mm": 2.907853584133809,
+     "msd_mm": 0.8823827992412084,
+     "volume_ratio": 1.083101505100221,
+     "centroid_dist_mm": 1.2588274439623168,
+     "gt_voxels": 14019,
+     "pred_voxels": 15184,
+     "gt_ml": 8.71804958152771,
+     "pred_ml": 9.442532623291015,
+     "hd_max_mm": 7.47662780796973,
+     "status": "ok",
+     "quality": "approx",
+     "pred_components": [
+      [
+       "head_glands_cavities",
+       "eye_left"
+      ]
+     ],
+     "gt_grid_matched_ct": true
+    },
+    "eye_right": {
+     "dice": 0.9034920414744946,
+     "hd95_mm": 2.7880859375,
+     "msd_mm": 0.6212587316346989,
+     "volume_ratio": 1.046774079068777,
+     "centroid_dist_mm": 0.8366122535496175,
+     "gt_voxels": 14089,
+     "pred_voxels": 14748,
+     "gt_ml": 8.761580751419068,
+     "pred_ml": 9.171395622253417,
+     "hd_max_mm": 7.802240333624235,
+     "status": "ok",
+     "quality": "approx",
+     "pred_components": [
+      [
+       "head_glands_cavities",
+       "eye_right"
+      ]
+     ],
+     "gt_grid_matched_ct": true
+    },
+    "optic_nerve_left": {
+     "dice": 0.34053156146179403,
+     "hd95_mm": 7.09730810257357,
+     "msd_mm": 1.4057641279821094,
+     "volume_ratio": 0.9325842696629213,
+     "centroid_dist_mm": 4.354803844988675,
+     "gt_voxels": 623,
+     "pred_voxels": 581,
+     "gt_ml": 0.38742741203308106,
+     "pred_ml": 0.3613087100982666,
+     "hd_max_mm": 11.15234375,
+     "status": "ok",
+     "quality": "approx",
+     "pred_components": [
+      [
+       "head_glands_cavities",
+       "optic_nerve_left"
+      ]
+     ],
+     "gt_grid_matched_ct": true
+    },
+    "optic_nerve_right": {
+     "dice": 0.5458362491252624,
+     "hd95_mm": 13.240926782642834,
+     "msd_mm": 1.5940639731093433,
+     "volume_ratio": 0.6693925233644858,
+     "centroid_dist_mm": 5.471229902833236,
+     "gt_voxels": 856,
+     "pred_voxels": 573,
+     "gt_ml": 0.5323240203857422,
+     "pred_ml": 0.35633371925354,
+     "hd_max_mm": 18.20600903630192,
+     "status": "ok",
+     "quality": "approx",
+     "pred_components": [
+      [
+       "head_glands_cavities",
+       "optic_nerve_right"
+      ]
+     ],
+     "gt_grid_matched_ct": true
+    },
+    "spinal_cord": {
+     "dice": 0.38825195919573613,
+     "hd95_mm": 84.6860581980285,
+     "msd_mm": 14.885016356979266,
+     "volume_ratio": 3.963931606636989,
+     "centroid_dist_mm": 41.4486468430981,
+     "gt_voxels": 19768,
+     "pred_voxels": 78359,
+     "gt_ml": 12.293202377319336,
+     "pred_ml": 48.72941345024109,
+     "hd_max_mm": 95.01471989681552,
+     "status": "ok",
+     "quality": "approx",
+     "pred_components": [
+      [
+       "total",
+       "spinal_cord"
+      ]
+     ],
+     "gt_grid_matched_ct": true,
+     "dice_z": 0.5236910472996192,
+     "hd95_z_mm": 5.167049034900379,
+     "msd_z_mm": 2.708953891878455,
+     "volume_ratio_z": 2.680139619587212,
+     "gt_z_slices": 78
+    },
+    "esophagus": {
+     "dice": 0.11462891980804636,
+     "hd95_mm": 106.83821925319367,
+     "msd_mm": 39.40102823397925,
+     "volume_ratio": 12.8458002507313,
+     "centroid_dist_mm": 59.36609214764619,
+     "gt_voxels": 2393,
+     "pred_voxels": 30740,
+     "gt_ml": 1.488144136428833,
+     "pred_ml": 19.116402320861816,
+     "hd_max_mm": 112.11981194697793,
+     "status": "ok",
+     "quality": "approx",
+     "pred_components": [
+      [
+       "total",
+       "esophagus"
+      ]
+     ],
+     "gt_grid_matched_ct": true,
+     "dice_z": 0.6856833363423,
+     "hd95_z_mm": 5.258943937100639,
+     "msd_z_mm": 1.0842620281248758,
+     "volume_ratio_z": 1.3146677810279983,
+     "gt_z_slices": 10
+    },
+    "larynx_air_vs_glottis_sg": {
+     "dice": 0.021916383425270705,
+     "hd95_mm": 18.05523105006672,
+     "msd_mm": 5.658703392839294,
+     "volume_ratio": 0.6688673981774224,
+     "centroid_dist_mm": 16.805580517570903,
+     "gt_voxels": 32262,
+     "pred_voxels": 21579,
+     "gt_ml": 20.062894329071046,
+     "pred_ml": 13.419415929794312,
+     "hd_max_mm": 22.160305604342287,
+     "status": "ok",
+     "quality": "definition",
+     "pred_components": [
+      [
+       "headneck_bones_vessels",
+       "larynx_air"
+      ]
+     ],
+     "gt_grid_matched_ct": true,
+     "dice_z": 0.025261715655841236,
+     "hd95_z_mm": 12.374295339847675,
+     "msd_z_mm": 4.6408141299875565,
+     "volume_ratio_z": 0.4478643605480131,
+     "gt_z_slices": 29
+    }
+   }
+  },
+  "case_05": {
+   "series_uid": "1.2.826.0.1.3680043.10.1337.449066860201574588920115211340439446",
+   "n_slices": 182,
+   "ct_shape": [
+    182,
+    1024,
+    1024
+   ],
+   "ct_spacing_zyx": [
+    2.0,
+    0.5605,
+    0.5605
+   ],
+   "grid_check": {
+    "mask_shape": [
+     182,
+     1024,
+     1024
+    ],
+    "ct_shape": [
+     182,
+     1024,
+     1024
+    ],
+    "shape_match": true,
+    "spacing_match": true,
+    "origin_match": true,
+    "direction_match": true
+   },
+   "metrics": {
+    "carotid_left": {
+     "dice": 0.6851931727155093,
+     "hd95_mm": 23.383121528250584,
+     "msd_mm": 2.560858219888789,
+     "volume_ratio": 0.7303550485126347,
+     "centroid_dist_mm": 32.17737824276563,
+     "gt_voxels": 9379,
+     "pred_voxels": 6850,
+     "gt_ml": 5.894003684997559,
+     "pred_ml": 4.304715347290039,
+     "hd_max_mm": 32.318453094647154,
+     "status": "ok",
+     "quality": "approx",
+     "pred_components": [
+      [
+       "headneck_bones_vessels",
+       "internal_carotid_artery_left"
+      ],
+      [
+       "total",
+       "common_carotid_artery_left"
+      ]
+     ],
+     "gt_grid_matched_ct": true,
+     "dice_z": 0.7121813756884847,
+     "hd95_z_mm": 23.383121528250584,
+     "msd_z_mm": 2.3934078923628306,
+     "volume_ratio_z": 0.6647830259089456,
+     "gt_z_slices": 100
+    },
+    "carotid_right": {
+     "dice": 0.53507871321013,
+     "hd95_mm": 26.59058818540756,
+     "msd_mm": 4.367490189781981,
+     "volume_ratio": 0.5638212469895639,
+     "centroid_dist_mm": 36.25939515766476,
+     "gt_voxels": 7474,
+     "pred_voxels": 4214,
+     "gt_ml": 4.696852920532226,
+     "pred_ml": 2.648185470581055,
+     "hd_max_mm": 31.853431016216806,
+     "status": "ok",
+     "quality": "approx",
+     "pred_components": [
+      [
+       "headneck_bones_vessels",
+       "internal_carotid_artery_right"
+      ],
+      [
+       "total",
+       "common_carotid_artery_right"
+      ]
+     ],
+     "gt_grid_matched_ct": true,
+     "dice_z": 0.5595419164355373,
+     "hd95_z_mm": 26.59058818540756,
+     "msd_z_mm": 4.3082147536134565,
+     "volume_ratio_z": 0.4954508964409955,
+     "gt_z_slices": 91
+    },
+    "mandible": {
+     "dice": 0.9345766095118477,
+     "hd95_mm": 2.0,
+     "msd_mm": 0.38884100184900316,
+     "volume_ratio": 1.1053712666745368,
+     "centroid_dist_mm": 0.5251032870739861,
+     "gt_voxels": 84710,
+     "pred_voxels": 93636,
+     "gt_ml": 53.233932418823244,
+     "pred_ml": 58.84325930786133,
+     "hd_max_mm": 5.852281187611968,
+     "status": "ok",
+     "quality": "exact",
+     "pred_components": [
+      [
+       "craniofacial_structures",
+       "mandible"
+      ]
+     ],
+     "gt_grid_matched_ct": true
+    },
+    "parotid_left": {
+     "dice": 0.4557621935936638,
+     "hd95_mm": 17.881754284529805,
+     "msd_mm": 6.440279081618643,
+     "volume_ratio": 0.30020204653587956,
+     "centroid_dist_mm": 5.289266451537825,
+     "gt_voxels": 46029,
+     "pred_voxels": 13818,
+     "gt_ml": 28.925801856994628,
+     "pred_ml": 8.683584915161132,
+     "hd_max_mm": 27.37357776030408,
+     "status": "ok",
+     "quality": "exact",
+     "pred_components": [
+      [
+       "head_glands_cavities",
+       "parotid_gland_left"
+      ]
+     ],
+     "gt_grid_matched_ct": true
+    },
+    "parotid_right": {
+     "dice": 0.5480066636976925,
+     "hd95_mm": 16.191982682669266,
+     "msd_mm": 4.8840881718904114,
+     "volume_ratio": 0.43696522955132616,
+     "centroid_dist_mm": 7.620862168822494,
+     "gt_voxels": 42191,
+     "pred_voxels": 18436,
+     "gt_ml": 26.513904411315917,
+     "pred_ml": 11.585654327392579,
+     "hd_max_mm": 24.66871349331049,
+     "status": "ok",
+     "quality": "exact",
+     "pred_components": [
+      [
+       "head_glands_cavities",
+       "parotid_gland_right"
+      ]
+     ],
+     "gt_grid_matched_ct": true
+    },
+    "submandibular_left": {
+     "dice": 0.7511662001865921,
+     "hd95_mm": 6.0,
+     "msd_mm": 1.5791982407927725,
+     "volume_ratio": 0.7058734369079197,
+     "centroid_dist_mm": 2.4603587378728458,
+     "gt_voxels": 13195,
+     "pred_voxels": 9314,
+     "gt_ml": 8.29207576751709,
+     "pred_ml": 5.853156021118164,
+     "hd_max_mm": 7.4274477947278905,
+     "status": "ok",
+     "quality": "exact",
+     "pred_components": [
+      [
+       "head_glands_cavities",
+       "submandibular_gland_left"
+      ]
+     ],
+     "gt_grid_matched_ct": true
+    },
+    "submandibular_right": {
+     "dice": 0.5877289909857517,
+     "hd95_mm": 14.216861809080312,
+     "msd_mm": 3.367248168754226,
+     "volume_ratio": 1.8734959893048129,
+     "centroid_dist_mm": 7.375458706525963,
+     "gt_voxels": 5984,
+     "pred_voxels": 11211,
+     "gt_ml": 3.760498779296875,
+     "pred_ml": 7.04527938079834,
+     "hd_max_mm": 17.327808979203787,
+     "status": "ok",
+     "quality": "exact",
+     "pred_components": [
+      [
+       "head_glands_cavities",
+       "submandibular_gland_right"
+      ]
+     ],
+     "gt_grid_matched_ct": true
+    },
+    "thyroid_gland": {
+     "dice": 0.8701639155359664,
+     "hd95_mm": 1.681640625,
+     "msd_mm": 0.5032240144604199,
+     "volume_ratio": 1.0984766050054406,
+     "centroid_dist_mm": 0.8942418903560935,
+     "gt_voxels": 16542,
+     "pred_voxels": 18171,
+     "gt_ml": 10.395416244506835,
+     "pred_ml": 11.419121543884277,
+     "hd_max_mm": 6.239994738160874,
+     "status": "ok",
+     "quality": "exact",
+     "pred_components": [
+      [
+       "total",
+       "thyroid_gland"
+      ]
+     ],
+     "gt_grid_matched_ct": true
+    },
+    "eye_left": {
+     "dice": 0.9386425339366515,
+     "hd95_mm": 2.8433723618160625,
+     "msd_mm": 0.4406936228998839,
+     "volume_ratio": 0.9661921708185054,
+     "centroid_dist_mm": 0.570226005518389,
+     "gt_voxels": 14050,
+     "pred_voxels": 13575,
+     "gt_ml": 8.829379653930664,
+     "pred_ml": 8.530877494812012,
+     "hd_max_mm": 7.263807368829041,
+     "status": "ok",
+     "quality": "approx",
+     "pred_components": [
+      [
+       "head_glands_cavities",
+       "eye_left"
+      ]
+     ],
+     "gt_grid_matched_ct": true
+    },
+    "eye_right": {
+     "dice": 0.9304690297171501,
+     "hd95_mm": 2.552195602335002,
+     "msd_mm": 0.4724271952678286,
+     "volume_ratio": 1.0063213849579773,
+     "centroid_dist_mm": 0.5353221597756838,
+     "gt_voxels": 13921,
+     "pred_voxels": 14009,
+     "gt_ml": 8.748312751770019,
+     "pred_ml": 8.803614204406738,
+     "hd_max_mm": 7.409620331009345,
+     "status": "ok",
+     "quality": "approx",
+     "pred_components": [
+      [
+       "head_glands_cavities",
+       "eye_right"
+      ]
+     ],
+     "gt_grid_matched_ct": true
+    },
+    "optic_nerve_left": {
+     "dice": 0.3877284595300261,
+     "hd95_mm": 8.336882117102322,
+     "msd_mm": 2.01307302767417,
+     "volume_ratio": 0.560081466395112,
+     "centroid_dist_mm": 7.345503607470579,
+     "gt_voxels": 982,
+     "pred_voxels": 550,
+     "gt_ml": 0.6171139373779296,
+     "pred_ml": 0.34563407897949217,
+     "hd_max_mm": 12.864889378581712,
+     "status": "ok",
+     "quality": "approx",
+     "pred_components": [
+      [
+       "head_glands_cavities",
+       "optic_nerve_left"
+      ]
+     ],
+     "gt_grid_matched_ct": true
+    },
+    "optic_nerve_right": {
+     "dice": 0.6691616766467066,
+     "hd95_mm": 9.288647220301543,
+     "msd_mm": 1.1329421111164444,
+     "volume_ratio": 0.9418604651162791,
+     "centroid_dist_mm": 4.2777077340129965,
+     "gt_voxels": 688,
+     "pred_voxels": 648,
+     "gt_ml": 0.4323568115234375,
+     "pred_ml": 0.40721978759765626,
+     "hd_max_mm": 12.904758173181735,
+     "status": "ok",
+     "quality": "approx",
+     "pred_components": [
+      [
+       "head_glands_cavities",
+       "optic_nerve_right"
+      ]
+     ],
+     "gt_grid_matched_ct": true
+    },
+    "spinal_cord": {
+     "dice": 0.44638003459352604,
+     "hd95_mm": 70.29503675637423,
+     "msd_mm": 12.417332378392235,
+     "volume_ratio": 3.209048361934477,
+     "centroid_dist_mm": 41.21534446856249,
+     "gt_voxels": 15384,
+     "pred_voxels": 49368,
+     "gt_ml": 9.667699401855469,
+     "pred_ml": 31.024114929199218,
+     "hd_max_mm": 76.52753596174371,
+     "status": "ok",
+     "quality": "approx",
+     "pred_components": [
+      [
+       "total",
+       "spinal_cord"
+      ]
+     ],
+     "gt_grid_matched_ct": true,
+     "dice_z": 0.5932067727039507,
+     "hd95_z_mm": 5.603251480572776,
+     "msd_z_mm": 2.20598559506856,
+     "volume_ratio_z": 2.1672516900676024,
+     "gt_z_slices": 68
+    },
+    "esophagus": {
+     "dice": 0.11911333448335346,
+     "hd95_mm": 96.71124591796342,
+     "msd_mm": 43.72509550694685,
+     "volume_ratio": 11.839424141749724,
+     "centroid_dist_mm": 56.82962165008419,
+     "gt_voxels": 1806,
+     "pred_voxels": 21382,
+     "gt_ml": 1.1349366302490234,
+     "pred_ml": 13.436996139526368,
+     "hd_max_mm": 99.47410578185588,
+     "status": "ok",
+     "quality": "approx",
+     "pred_components": [
+      [
+       "total",
+       "esophagus"
+      ]
+     ],
+     "gt_grid_matched_ct": true,
+     "dice_z": 0.7402841061377646,
+     "hd95_z_mm": 4.7142700756523706,
+     "msd_z_mm": 0.8332489917083833,
+     "volume_ratio_z": 1.0658914728682172,
+     "gt_z_slices": 6
+    },
+    "larynx_air_vs_glottis_sg": {
+     "dice": 0.03026108231658243,
+     "hd95_mm": 13.519780199399321,
+     "msd_mm": 4.187229579149506,
+     "volume_ratio": 0.7723952984137852,
+     "centroid_dist_mm": 9.803626651073381,
+     "gt_voxels": 17526,
+     "pred_voxels": 13537,
+     "gt_ml": 11.013787033081055,
+     "pred_ml": 8.506997322082519,
+     "hd_max_mm": 16.856117591436874,
+     "status": "ok",
+     "quality": "definition",
+     "pred_components": [
+      [
+       "headneck_bones_vessels",
+       "larynx_air"
+      ]
+     ],
+     "gt_grid_matched_ct": true,
+     "dice_z": 0.03372318289445361,
+     "hd95_z_mm": 9.311169625308077,
+     "msd_z_mm": 3.5506416264268927,
+     "volume_ratio_z": 0.5904370649321009,
+     "gt_z_slices": 25
+    }
+   }
+  },
+  "case_12": {
+   "series_uid": "1.2.826.0.1.3680043.10.1337.144743551434499546562758016618053311",
+   "n_slices": 138,
+   "ct_shape": [
+    138,
+    1024,
+    1024
+   ],
+   "ct_spacing_zyx": [
+    3.0,
+    0.5576,
+    0.5576
+   ],
+   "grid_check": {
+    "mask_shape": [
+     138,
+     1024,
+     1024
+    ],
+    "ct_shape": [
+     138,
+     1024,
+     1024
+    ],
+    "shape_match": true,
+    "spacing_match": true,
+    "origin_match": true,
+    "direction_match": true
+   },
+   "metrics": {
+    "carotid_left": {
+     "dice": 0.6595100782276023,
+     "hd95_mm": 15.967170316646762,
+     "msd_mm": 1.987434192951883,
+     "volume_ratio": 0.8800858829844337,
+     "centroid_dist_mm": 37.6285812407418,
+     "gt_voxels": 9315,
+     "pred_voxels": 8198,
+     "gt_ml": 8.689132447242738,
+     "pred_ml": 7.647182802200318,
+     "hd_max_mm": 27.21659784754104,
+     "status": "ok",
+     "quality": "approx",
+     "pred_components": [
+      [
+       "headneck_bones_vessels",
+       "internal_carotid_artery_left"
+      ],
+      [
+       "total",
+       "common_carotid_artery_left"
+      ]
+     ],
+     "gt_grid_matched_ct": true,
+     "dice_z": 0.6708096178417935,
+     "hd95_z_mm": 15.967170316646762,
+     "msd_z_mm": 1.8808815536388732,
+     "volume_ratio_z": 0.8484165324745034,
+     "gt_z_slices": 74
+    },
+    "carotid_right": {
+     "dice": 0.7102399654103912,
+     "hd95_mm": 15.614427880461186,
+     "msd_mm": 1.9079658158789317,
+     "volume_ratio": 0.9059195165499245,
+     "centroid_dist_mm": 27.396826758805283,
+     "gt_voxels": 7281,
+     "pred_voxels": 6596,
+     "gt_ml": 6.791795313835144,
+     "pred_ml": 6.152819927215576,
+     "hd_max_mm": 25.858445515595715,
+     "status": "ok",
+     "quality": "approx",
+     "pred_components": [
+      [
+       "headneck_bones_vessels",
+       "internal_carotid_artery_right"
+      ],
+      [
+       "total",
+       "common_carotid_artery_right"
+      ]
+     ],
+     "gt_grid_matched_ct": true,
+     "dice_z": 0.7311030338995623,
+     "hd95_z_mm": 15.614427880461186,
+     "msd_z_mm": 1.7050550295291373,
+     "volume_ratio_z": 0.8515313830517787,
+     "gt_z_slices": 69
+    },
+    "mandible": {
+     "dice": 0.9354109328026422,
+     "hd95_mm": 3.0,
+     "msd_mm": 0.33346943389027844,
+     "volume_ratio": 1.064423076923077,
+     "centroid_dist_mm": 0.43417847456487535,
+     "gt_voxels": 57200,
+     "pred_voxels": 60885,
+     "gt_ml": 53.356776809692384,
+     "pred_ml": 56.794184546470646,
+     "hd_max_mm": 6.0,
+     "status": "ok",
+     "quality": "exact",
+     "pred_components": [
+      [
+       "craniofacial_structures",
+       "mandible"
+      ]
+     ],
+     "gt_grid_matched_ct": true
+    },
+    "parotid_left": {
+     "dice": 0.38045405656812303,
+     "hd95_mm": 34.02916184639203,
+     "msd_mm": 9.129384865621443,
+     "volume_ratio": 0.2462324300825967,
+     "centroid_dist_mm": 11.221655583596462,
+     "gt_voxels": 27604,
+     "pred_voxels": 6797,
+     "gt_ml": 25.74930886459351,
+     "pred_ml": 6.340314894676209,
+     "hd_max_mm": 43.97508601862837,
+     "status": "ok",
+     "quality": "exact",
+     "pred_components": [
+      [
+       "head_glands_cavities",
+       "parotid_gland_left"
+      ]
+     ],
+     "gt_grid_matched_ct": true
+    },
+    "parotid_right": {
+     "dice": 0.3431041936878513,
+     "hd95_mm": 32.62860019679531,
+     "msd_mm": 10.233434253085958,
+     "volume_ratio": 0.25898105813193995,
+     "centroid_dist_mm": 12.965525055051792,
+     "gt_voxels": 27558,
+     "pred_voxels": 7137,
+     "gt_ml": 25.70639956855774,
+     "pred_ml": 6.6574705610275275,
+     "hd_max_mm": 40.30031029981699,
+     "status": "ok",
+     "quality": "exact",
+     "pred_components": [
+      [
+       "head_glands_cavities",
+       "parotid_gland_right"
+      ]
+     ],
+     "gt_grid_matched_ct": true
+    },
+    "submandibular_left": {
+     "dice": 0.7858588711575578,
+     "hd95_mm": 6.0,
+     "msd_mm": 1.6445113827784328,
+     "volume_ratio": 0.6820809248554913,
+     "centroid_dist_mm": 1.1093991355297332,
+     "gt_voxels": 12629,
+     "pred_voxels": 8614,
+     "gt_ml": 11.780467383384705,
+     "pred_ml": 8.03523208808899,
+     "hd_max_mm": 9.0,
+     "status": "ok",
+     "quality": "exact",
+     "pred_components": [
+      [
+       "head_glands_cavities",
+       "submandibular_gland_left"
+      ]
+     ],
+     "gt_grid_matched_ct": true
+    },
+    "submandibular_right": {
+     "dice": 0.6658265884747734,
+     "hd95_mm": 12.0,
+     "msd_mm": 3.0598998584475514,
+     "volume_ratio": 0.5116858377903143,
+     "centroid_dist_mm": 1.8403844434506138,
+     "gt_voxels": 13649,
+     "pred_voxels": 6984,
+     "gt_ml": 12.731934382438661,
+     "pred_ml": 6.514750511169434,
+     "hd_max_mm": 15.010360985925535,
+     "status": "ok",
+     "quality": "exact",
+     "pred_components": [
+      [
+       "head_glands_cavities",
+       "submandibular_gland_right"
+      ]
+     ],
+     "gt_grid_matched_ct": true
+    },
+    "thyroid_gland": {
+     "dice": 0.8597535061623459,
+     "hd95_mm": 3.611395860514371,
+     "msd_mm": 0.7496906756134999,
+     "volume_ratio": 0.9771263187377462,
+     "centroid_dist_mm": 0.6847631035351603,
+     "gt_voxels": 21422,
+     "pred_voxels": 20932,
+     "gt_ml": 19.98267260169983,
+     "pred_ml": 19.525595317840576,
+     "hd_max_mm": 9.82582548134102,
+     "status": "ok",
+     "quality": "exact",
+     "pred_components": [
+      [
+       "total",
+       "thyroid_gland"
+      ]
+     ],
+     "gt_grid_matched_ct": true
+    },
+    "eye_left": {
+     "dice": 0.9103218526677771,
+     "hd95_mm": 3.0,
+     "msd_mm": 0.4943766714567615,
+     "volume_ratio": 1.0135237477009629,
+     "centroid_dist_mm": 0.7185152302714285,
+     "gt_voxels": 9243,
+     "pred_voxels": 9368,
+     "gt_ml": 8.621970070838929,
+     "pred_ml": 8.738571418762207,
+     "hd_max_mm": 6.869769239256495,
+     "status": "ok",
+     "quality": "approx",
+     "pred_components": [
+      [
+       "head_glands_cavities",
+       "eye_left"
+      ]
+     ],
+     "gt_grid_matched_ct": true
+    },
+    "eye_right": {
+     "dice": 0.9134584101507429,
+     "hd95_mm": 3.0,
+     "msd_mm": 0.4873173273755234,
+     "volume_ratio": 1.0315047367261512,
+     "centroid_dist_mm": 0.18864429365905325,
+     "gt_voxels": 9078,
+     "pred_voxels": 9364,
+     "gt_ml": 8.4680562915802,
+     "pred_ml": 8.734840175628662,
+     "hd_max_mm": 6.429419918680273,
+     "status": "ok",
+     "quality": "approx",
+     "pred_components": [
+      [
+       "head_glands_cavities",
+       "eye_right"
+      ]
+     ],
+     "gt_grid_matched_ct": true
+    },
+    "optic_nerve_left": {
+     "dice": 0.5702270815811606,
+     "hd95_mm": 12.575933192822223,
+     "msd_mm": 1.715397011214195,
+     "volume_ratio": 0.6629370629370629,
+     "centroid_dist_mm": 7.982537768483996,
+     "gt_voxels": 715,
+     "pred_voxels": 474,
+     "gt_ml": 0.6669597101211548,
+     "pred_ml": 0.44215231132507327,
+     "hd_max_mm": 16.903664269557506,
+     "status": "ok",
+     "quality": "approx",
+     "pred_components": [
+      [
+       "head_glands_cavities",
+       "optic_nerve_left"
+      ]
+     ],
+     "gt_grid_matched_ct": true
+    },
+    "optic_nerve_right": {
+     "dice": 0.6334913112164297,
+     "hd95_mm": 8.330650746702624,
+     "msd_mm": 0.945630156659902,
+     "volume_ratio": 0.9152798789712556,
+     "centroid_dist_mm": 6.209725646733648,
+     "gt_voxels": 661,
+     "pred_voxels": 605,
+     "gt_ml": 0.6165879278182984,
+     "pred_ml": 0.5643505239486695,
+     "hd_max_mm": 12.642056038747844,
+     "status": "ok",
+     "quality": "approx",
+     "pred_components": [
+      [
+       "head_glands_cavities",
+       "optic_nerve_right"
+      ]
+     ],
+     "gt_grid_matched_ct": true
+    },
+    "spinal_cord": {
+     "dice": 0.3604272480299681,
+     "hd95_mm": 93.02401696054535,
+     "msd_mm": 16.694818442428566,
+     "volume_ratio": 4.262676494094663,
+     "centroid_dist_mm": 50.49705666783686,
+     "gt_voxels": 11261,
+     "pred_voxels": 48002,
+     "gt_ml": 10.504382231712341,
+     "pred_ml": 44.776783224105834,
+     "hd_max_mm": 98.89169160988253,
+     "status": "ok",
+     "quality": "approx",
+     "pred_components": [
+      [
+       "total",
+       "spinal_cord"
+      ]
+     ],
+     "gt_grid_matched_ct": true,
+     "dice_z": 0.5165284259908592,
+     "hd95_z_mm": 6.1337890625,
+     "msd_z_mm": 2.6644883271776667,
+     "volume_ratio_z": 2.672231595773022,
+     "gt_z_slices": 52
+    },
+    "esophagus": {
+     "dice": 0.13461358313817332,
+     "hd95_mm": 121.27956629072246,
+     "msd_mm": 46.55264819765402,
+     "volume_ratio": 6.724312590448625,
+     "centroid_dist_mm": 66.73133344057675,
+     "gt_voxels": 2764,
+     "pred_voxels": 18586,
+     "gt_ml": 2.578289005279541,
+     "pred_ml": 17.33722122001648,
+     "hd_max_mm": 124.23981939550146,
+     "status": "ok",
+     "quality": "approx",
+     "pred_components": [
+      [
+       "total",
+       "esophagus"
+      ]
+     ],
+     "gt_grid_matched_ct": true,
+     "dice_z": 0.6778301886792453,
+     "hd95_z_mm": 6.025855700877297,
+     "msd_z_mm": 1.4191940290521192,
+     "volume_ratio_z": 0.5340086830680174,
+     "gt_z_slices": 5
+    },
+    "larynx_air_vs_glottis_sg": {
+     "dice": 0.015036198255058475,
+     "hd95_mm": 14.438979894581133,
+     "msd_mm": 6.416760838872738,
+     "volume_ratio": 0.46286490156143917,
+     "centroid_dist_mm": 24.769157659461193,
+     "gt_voxels": 22095,
+     "pred_voxels": 10227,
+     "gt_ml": 20.610454258918764,
+     "pred_ml": 9.539855881690979,
+     "hd_max_mm": 18.23113833273245,
+     "status": "ok",
+     "quality": "definition",
+     "pred_components": [
+      [
+       "headneck_bones_vessels",
+       "larynx_air"
+      ]
+     ],
+     "gt_grid_matched_ct": true,
+     "dice_z": 0.0164913471326773,
+     "hd95_z_mm": 13.73934423214132,
+     "msd_z_mm": 5.859177633509163,
+     "volume_ratio_z": 0.33378592441728894,
+     "gt_z_slices": 23
+    }
+   }
+  }
+ },
+ "pairs": [
+  "carotid_left",
+  "carotid_right",
+  "mandible",
+  "parotid_left",
+  "parotid_right",
+  "submandibular_left",
+  "submandibular_right",
+  "thyroid_gland",
+  "eye_left",
+  "eye_right",
+  "optic_nerve_left",
+  "optic_nerve_right",
+  "spinal_cord",
+  "esophagus",
+  "larynx_air_vs_glottis_sg"
+ ],
+ "mapping": [
+  {
+   "key": "carotid_left",
+   "gt": [
+    "OAR_A_Carotid_L"
+   ],
+   "pred": [
+    [
+     "headneck_bones_vessels",
+     "internal_carotid_artery_left"
+    ],
+    [
+     "total",
+     "common_carotid_artery_left"
+    ]
+   ],
+   "quality": "approx",
+   "z_restrict": true,
+   "note": "HaN-Seg contours the carotid as one structure (common + internal). TotalSegmentator splits it: common carotid lives in `total`, internal carotid in `headneck_bones_vessels`. Scored against the union of the two."
+  },
+  {
+   "key": "carotid_right",
+   "gt": [
+    "OAR_A_Carotid_R"
+   ],
+   "pred": [
+    [
+     "headneck_bones_vessels",
+     "internal_carotid_artery_right"
+    ],
+    [
+     "total",
+     "common_carotid_artery_right"
+    ]
+   ],
+   "quality": "approx",
+   "z_restrict": true,
+   "note": "See carotid_left."
+  },
+  {
+   "key": "mandible",
+   "gt": [
+    "OAR_Bone_Mandible"
+   ],
+   "pred": [
+    [
+     "craniofacial_structures",
+     "mandible"
+    ]
+   ],
+   "quality": "exact",
+   "z_restrict": false,
+   "note": ""
+  },
+  {
+   "key": "parotid_left",
+   "gt": [
+    "OAR_Parotid_L"
+   ],
+   "pred": [
+    [
+     "head_glands_cavities",
+     "parotid_gland_left"
+    ]
+   ],
+   "quality": "exact",
+   "z_restrict": false,
+   "note": ""
+  },
+  {
+   "key": "parotid_right",
+   "gt": [
+    "OAR_Parotid_R"
+   ],
+   "pred": [
+    [
+     "head_glands_cavities",
+     "parotid_gland_right"
+    ]
+   ],
+   "quality": "exact",
+   "z_restrict": false,
+   "note": ""
+  },
+  {
+   "key": "submandibular_left",
+   "gt": [
+    "OAR_Glnd_Submand_L"
+   ],
+   "pred": [
+    [
+     "head_glands_cavities",
+     "submandibular_gland_left"
+    ]
+   ],
+   "quality": "exact",
+   "z_restrict": false,
+   "note": ""
+  },
+  {
+   "key": "submandibular_right",
+   "gt": [
+    "OAR_Glnd_Submand_R"
+   ],
+   "pred": [
+    [
+     "head_glands_cavities",
+     "submandibular_gland_right"
+    ]
+   ],
+   "quality": "exact",
+   "z_restrict": false,
+   "note": ""
+  },
+  {
+   "key": "thyroid_gland",
+   "gt": [
+    "OAR_Glnd_Thyroid"
+   ],
+   "pred": [
+    [
+     "total",
+     "thyroid_gland"
+    ]
+   ],
+   "quality": "exact",
+   "z_restrict": false,
+   "note": ""
+  },
+  {
+   "key": "eye_left",
+   "gt": [
+    "OAR_Eye_AL",
+    "OAR_Eye_PL"
+   ],
+   "pred": [
+    [
+     "head_glands_cavities",
+     "eye_left"
+    ]
+   ],
+   "quality": "approx",
+   "z_restrict": false,
+   "note": "HaN-Seg splits the globe into anterior (Eye_AL) and posterior (Eye_PL) segments; TotalSegmentator has one `eye_left`. Scored against the GT union."
+  },
+  {
+   "key": "eye_right",
+   "gt": [
+    "OAR_Eye_AR",
+    "OAR_Eye_PR"
+   ],
+   "pred": [
+    [
+     "head_glands_cavities",
+     "eye_right"
+    ]
+   ],
+   "quality": "approx",
+   "z_restrict": false,
+   "note": "See eye_left."
+  },
+  {
+   "key": "optic_nerve_left",
+   "gt": [
+    "OAR_OpticNrv_L"
+   ],
+   "pred": [
+    [
+     "head_glands_cavities",
+     "optic_nerve_left"
+    ]
+   ],
+   "quality": "approx",
+   "z_restrict": false,
+   "note": "Both label the optic nerve, but the posterior (intracranial / chiasmatic) cut-off is not standardised between the two conventions."
+  },
+  {
+   "key": "optic_nerve_right",
+   "gt": [
+    "OAR_OpticNrv_R"
+   ],
+   "pred": [
+    [
+     "head_glands_cavities",
+     "optic_nerve_right"
+    ]
+   ],
+   "quality": "approx",
+   "z_restrict": false,
+   "note": "See optic_nerve_left."
+  },
+  {
+   "key": "spinal_cord",
+   "gt": [
+    "OAR_SpinalCord"
+   ],
+   "pred": [
+    [
+     "total",
+     "spinal_cord"
+    ]
+   ],
+   "quality": "approx",
+   "z_restrict": true,
+   "note": "Same object, different cranio-caudal extent: HaN-Seg stops at the RT planning limits, TotalSegmentator labels the cord over the whole FOV. The z-restricted column is the boundary-accuracy number."
+  },
+  {
+   "key": "esophagus",
+   "gt": [
+    "OAR_Esophagus_S"
+   ],
+   "pred": [
+    [
+     "total",
+     "esophagus"
+    ]
+   ],
+   "quality": "approx",
+   "z_restrict": true,
+   "note": "HaN-Seg `Esophagus_S` is the *cervical* oesophagus only (~1.5 mL, ~20 mm). TotalSegmentator `esophagus` runs the whole oesophagus in the FOV. The raw volume ratio is a protocol difference, not an error."
+  },
+  {
+   "key": "larynx_air_vs_glottis_sg",
+   "gt": [
+    "OAR_Glottis",
+    "OAR_Larynx_SG"
+   ],
+   "pred": [
+    [
+     "headneck_bones_vessels",
+     "larynx_air"
+    ]
+   ],
+   "quality": "definition",
+   "z_restrict": true,
+   "note": "NOT the same object. HaN-Seg `Glottis` + `Larynx_SG` are laryngeal soft tissue; TotalSegmentator `larynx_air` is the air column inside the larynx. Reported only to document the size of the mismatch."
+  }
+ ],
+ "unmatched_gt": {
+  "OAR_Arytenoid": "no arytenoid class in any offered task (headneck_bones_vessels has thyroid/cricoid cartilage and hyoid only)",
+  "OAR_Brainstem": "`total` has `brain` (whole brain) but no brainstem. The TotalSegmentator task that would carry it, `brain_structures`, needs a non-commercial licence key and is deliberately not offered.",
+  "OAR_BuccalMucosa": "no counterpart",
+  "OAR_Cavity_Oral": "no counterpart (teeth / craniofacial tasks give jawbones, teeth and palate, not the oral cavity)",
+  "OAR_Cochlea_L": "`auditory_canal_left` is the *external* auditory canal, not the cochlea",
+  "OAR_Cochlea_R": "see OAR_Cochlea_L",
+  "OAR_Cricopharyngeus": "no counterpart",
+  "OAR_Glnd_Lacrimal_L": "no lacrimal gland class in head_glands_cavities",
+  "OAR_Glnd_Lacrimal_R": "no lacrimal gland class in head_glands_cavities",
+  "OAR_Lips": "no counterpart",
+  "OAR_OpticChiasm": "no counterpart",
+  "OAR_Pituitary": "no counterpart"
+ },
+ "unmatched_pred": {
+  "headneck_bones_vessels": [
+   "thyroid_cartilage",
+   "hyoid",
+   "cricoid_cartilage",
+   "zygomatic_arch_left",
+   "zygomatic_arch_right",
+   "styloid_process_left",
+   "styloid_process_right",
+   "internal_jugular_vein_left",
+   "internal_jugular_vein_right"
+  ],
+  "head_glands_cavities": [
+   "eye_lens_left",
+   "eye_lens_right",
+   "nasopharynx",
+   "oropharynx",
+   "hypopharynx",
+   "nasal_cavity_left",
+   "nasal_cavity_right",
+   "auditory_canal_left",
+   "auditory_canal_right",
+   "soft_palate",
+   "hard_palate"
+  ],
+  "craniofacial_structures": [
+   "skull",
+   "head",
+   "teeth_lower",
+   "teeth_upper",
+   "sinus_maxillary",
+   "sinus_frontal"
+  ],
+  "total": [
+   "brain",
+   "vertebrae_C1",
+   "vertebrae_C2",
+   "vertebrae_C3",
+   "vertebrae_C4",
+   "vertebrae_C5",
+   "vertebrae_C6",
+   "vertebrae_C7"
+  ],
+  "hnlnl": [
+   "all 20 cervical nodal levels - HaN-Seg has no nodal-level ground truth"
+  ]
+ },
+ "jobs": {
+  "case_01": [
+   {
+    "job_key": "headneck_bones_vessels",
+    "model": "totalseg",
+    "tasks": [
+     "headneck_bones_vessels"
+    ],
+    "roi_subset": null,
+    "status": "done",
+    "wall_s": 10.0,
+    "cached": true,
+    "n_structures": 12,
+    "error": null,
+    "rss_note": null
+   },
+   {
+    "job_key": "head_glands_cavities",
+    "model": "totalseg",
+    "tasks": [
+     "head_glands_cavities"
+    ],
+    "roi_subset": null,
+    "status": "done",
+    "wall_s": 0.0,
+    "cached": true,
+    "n_structures": 19,
+    "error": null,
+    "rss_note": null
+   },
+   {
+    "job_key": "craniofacial_structures",
+    "model": "totalseg",
+    "tasks": [
+     "craniofacial_structures"
+    ],
+    "roi_subset": null,
+    "status": "done",
+    "wall_s": 10.0,
+    "cached": true,
+    "n_structures": 7,
+    "error": null,
+    "rss_note": null
+   },
+   {
+    "job_key": "total",
+    "model": "totalseg",
+    "tasks": [
+     "total"
+    ],
+    "roi_subset": [
+     "spinal_cord",
+     "esophagus",
+     "thyroid_gland",
+     "brain",
+     "vertebrae_C1",
+     "vertebrae_C2",
+     "vertebrae_C3",
+     "vertebrae_C4",
+     "vertebrae_C5",
+     "vertebrae_C6",
+     "vertebrae_C7"
+    ],
+    "status": "done",
+    "wall_s": 0.0,
+    "cached": true,
+    "n_structures": 11,
+    "error": null,
+    "rss_note": null
+   },
+   {
+    "job_key": "total_carotid",
+    "model": "totalseg",
+    "tasks": [
+     "total"
+    ],
+    "roi_subset": [
+     "common_carotid_artery_left",
+     "common_carotid_artery_right"
+    ],
+    "status": "done",
+    "wall_s": 10.1,
+    "cached": true,
+    "n_structures": 2,
+    "error": null,
+    "rss_note": null
+   },
+   {
+    "job_key": "hnlnl",
+    "model": "hnlnl",
+    "tasks": null,
+    "roi_subset": null,
+    "status": "done",
+    "wall_s": 0.1,
+    "cached": true,
+    "n_structures": 20,
+    "error": null,
+    "rss_note": null
+   }
+  ],
+  "case_05": [
+   {
+    "job_key": "headneck_bones_vessels",
+    "model": "totalseg",
+    "tasks": [
+     "headneck_bones_vessels"
+    ],
+    "roi_subset": null,
+    "status": "done",
+    "wall_s": 10.0,
+    "cached": true,
+    "n_structures": 11,
+    "error": null,
+    "rss_note": null
+   },
+   {
+    "job_key": "head_glands_cavities",
+    "model": "totalseg",
+    "tasks": [
+     "head_glands_cavities"
+    ],
+    "roi_subset": null,
+    "status": "done",
+    "wall_s": 0.0,
+    "cached": true,
+    "n_structures": 19,
+    "error": null,
+    "rss_note": null
+   },
+   {
+    "job_key": "craniofacial_structures",
+    "model": "totalseg",
+    "tasks": [
+     "craniofacial_structures"
+    ],
+    "roi_subset": null,
+    "status": "done",
+    "wall_s": 10.0,
+    "cached": true,
+    "n_structures": 7,
+    "error": null,
+    "rss_note": null
+   },
+   {
+    "job_key": "total",
+    "model": "totalseg",
+    "tasks": [
+     "total"
+    ],
+    "roi_subset": [
+     "spinal_cord",
+     "esophagus",
+     "thyroid_gland",
+     "brain",
+     "vertebrae_C1",
+     "vertebrae_C2",
+     "vertebrae_C3",
+     "vertebrae_C4",
+     "vertebrae_C5",
+     "vertebrae_C6",
+     "vertebrae_C7"
+    ],
+    "status": "done",
+    "wall_s": 0.1,
+    "cached": true,
+    "n_structures": 11,
+    "error": null,
+    "rss_note": null
+   },
+   {
+    "job_key": "total_carotid",
+    "model": "totalseg",
+    "tasks": [
+     "total"
+    ],
+    "roi_subset": [
+     "common_carotid_artery_left",
+     "common_carotid_artery_right"
+    ],
+    "status": "done",
+    "wall_s": 0.0,
+    "cached": true,
+    "n_structures": 2,
+    "error": null,
+    "rss_note": null
+   },
+   {
+    "job_key": "hnlnl",
+    "model": "hnlnl",
+    "tasks": null,
+    "roi_subset": null,
+    "status": "done",
+    "wall_s": 10.0,
+    "cached": true,
+    "n_structures": 20,
+    "error": null,
+    "rss_note": null
+   }
+  ],
+  "case_12": [
+   {
+    "job_key": "headneck_bones_vessels",
+    "model": "totalseg",
+    "tasks": [
+     "headneck_bones_vessels"
+    ],
+    "roi_subset": null,
+    "status": "done",
+    "wall_s": 10.1,
+    "cached": true,
+    "n_structures": 10,
+    "error": null,
+    "rss_note": null
+   },
+   {
+    "job_key": "head_glands_cavities",
+    "model": "totalseg",
+    "tasks": [
+     "head_glands_cavities"
+    ],
+    "roi_subset": null,
+    "status": "done",
+    "wall_s": 0.0,
+    "cached": true,
+    "n_structures": 19,
+    "error": null,
+    "rss_note": null
+   },
+   {
+    "job_key": "craniofacial_structures",
+    "model": "totalseg",
+    "tasks": [
+     "craniofacial_structures"
+    ],
+    "roi_subset": null,
+    "status": "done",
+    "wall_s": 0.0,
+    "cached": true,
+    "n_structures": 7,
+    "error": null,
+    "rss_note": null
+   },
+   {
+    "job_key": "total",
+    "model": "totalseg",
+    "tasks": [
+     "total"
+    ],
+    "roi_subset": [
+     "spinal_cord",
+     "esophagus",
+     "thyroid_gland",
+     "brain",
+     "vertebrae_C1",
+     "vertebrae_C2",
+     "vertebrae_C3",
+     "vertebrae_C4",
+     "vertebrae_C5",
+     "vertebrae_C6",
+     "vertebrae_C7"
+    ],
+    "status": "done",
+    "wall_s": 10.1,
+    "cached": true,
+    "n_structures": 11,
+    "error": null,
+    "rss_note": null
+   },
+   {
+    "job_key": "total_carotid",
+    "model": "totalseg",
+    "tasks": [
+     "total"
+    ],
+    "roi_subset": [
+     "common_carotid_artery_left",
+     "common_carotid_artery_right"
+    ],
+    "status": "done",
+    "wall_s": 0.0,
+    "cached": true,
+    "n_structures": 2,
+    "error": null,
+    "rss_note": null
+   },
+   {
+    "job_key": "hnlnl",
+    "model": "hnlnl",
+    "tasks": null,
+    "roi_subset": null,
+    "status": "done",
+    "wall_s": 0.0,
+    "cached": true,
+    "n_structures": 20,
+    "error": null,
+    "rss_note": null
+   }
+  ]
+ },
+ "nodal": {
+  "case_01": {
+   "present": [
+    "level_III_left",
+    "level_III_right",
+    "level_II_left",
+    "level_II_right",
+    "level_IVa_left",
+    "level_IVa_right",
+    "level_IVb_left",
+    "level_IVb_right",
+    "level_Ia",
+    "level_Ib_left",
+    "level_Ib_right",
+    "level_VIII_left",
+    "level_VIII_right",
+    "level_VIIa",
+    "level_VIIb_left",
+    "level_VIIb_right",
+    "level_VIa",
+    "level_VIb",
+    "level_V_left",
+    "level_V_right"
+   ],
+   "n_present": 20,
+   "checks": {
+    "bilateral": [
+     {
+      "pair": "level_Ib",
+      "x_left": 25.1,
+      "x_right": -32.0,
+      "side_ok": true,
+      "mirror_offset_mm": -6.899999999999999,
+      "vol_left_ml": 34.43,
+      "vol_right_ml": 27.79,
+      "vol_ratio": 1.2389348686577906
+     },
+     {
+      "pair": "level_II",
+      "x_left": 37.1,
+      "x_right": 248.2,
+      "side_ok": false,
+      "mirror_offset_mm": 285.3,
+      "vol_left_ml": 32.43,
+      "vol_right_ml": 54.95,
+      "vol_ratio": 0.5901728844404003
+     },
+     {
+      "pair": "level_III",
+      "x_left": 32.2,
+      "x_right": -36.9,
+      "side_ok": true,
+      "mirror_offset_mm": -4.699999999999996,
+      "vol_left_ml": 13.73,
+      "vol_right_ml": 17.86,
+      "vol_ratio": 0.7687569988801792
+     },
+     {
+      "pair": "level_IVa",
+      "x_left": 33.5,
+      "x_right": -33.5,
+      "side_ok": true,
+      "mirror_offset_mm": 0.0,
+      "vol_left_ml": 15.97,
+      "vol_right_ml": 19.11,
+      "vol_ratio": 0.8356881214024072
+     },
+     {
+      "pair": "level_IVb",
+      "x_left": 31.2,
+      "x_right": -34.4,
+      "side_ok": true,
+      "mirror_offset_mm": -3.1999999999999993,
+      "vol_left_ml": 23.57,
+      "vol_right_ml": 22.06,
+      "vol_ratio": 1.0684496826835903
+     },
+     {
+      "pair": "level_V",
+      "x_left": 41.0,
+      "x_right": 200.3,
+      "side_ok": false,
+      "mirror_offset_mm": 241.3,
+      "vol_left_ml": 30.03,
+      "vol_right_ml": 159.39,
+      "vol_ratio": 0.1884057971014493
+     },
+     {
+      "pair": "level_VIIb",
+      "x_left": 27.7,
+      "x_right": -32.6,
+      "side_ok": true,
+      "mirror_offset_mm": -4.900000000000002,
+      "vol_left_ml": 4.79,
+      "vol_right_ml": 5.11,
+      "vol_ratio": 0.9373776908023483
+     },
+     {
+      "pair": "level_VIII",
+      "x_left": 56.1,
+      "x_right": -60.3,
+      "side_ok": true,
+      "mirror_offset_mm": -4.199999999999996,
+      "vol_left_ml": 19.4,
+      "vol_right_ml": 15.15,
+      "vol_ratio": 1.2805280528052805
+     }
+    ],
+    "missing_side": [],
+    "all_sides_correct": false,
+    "carotid_x": {
+     "ica_left": 28.0,
+     "ica_right": -32.2
+    },
+    "cranio_caudal_order": {
+     "left": {
+      "chain": [
+       [
+        "level_II_left",
+        -562.6
+       ],
+       [
+        "level_III_left",
+        -610.5
+       ],
+       [
+        "level_IVa_left",
+        -650.3
+       ],
+       [
+        "level_IVb_left",
+        -674.7
+       ]
+      ],
+      "monotonic_superior_to_inferior": true
+     },
+     "right": {
+      "chain": [
+       [
+        "level_II_right",
+        -413.0
+       ],
+       [
+        "level_III_right",
+        -608.3
+       ],
+       [
+        "level_IVa_right",
+        -652.3
+       ],
+       [
+        "level_IVb_right",
+        -676.8
+       ]
+      ],
+      "monotonic_superior_to_inferior": true
+     }
+    },
+    "count_left": 8,
+    "count_right": 8,
+    "midline": [
+     "level_Ia",
+     "level_VIIa",
+     "level_VIa",
+     "level_VIb"
+    ],
+    "midline_offset_mm": {
+     "level_Ia": -4.7,
+     "level_VIIa": -2.2,
+     "level_VIa": -2.3,
+     "level_VIb": 2.8
+    }
+   }
+  },
+  "case_05": {
+   "present": [
+    "level_III_left",
+    "level_III_right",
+    "level_II_left",
+    "level_II_right",
+    "level_IVa_left",
+    "level_IVa_right",
+    "level_IVb_left",
+    "level_IVb_right",
+    "level_Ia",
+    "level_Ib_left",
+    "level_Ib_right",
+    "level_VIII_left",
+    "level_VIII_right",
+    "level_VIIa",
+    "level_VIIb_left",
+    "level_VIIb_right",
+    "level_VIa",
+    "level_VIb",
+    "level_V_left",
+    "level_V_right"
+   ],
+   "n_present": 20,
+   "checks": {
+    "bilateral": [
+     {
+      "pair": "level_Ib",
+      "x_left": 16.5,
+      "x_right": -38.2,
+      "side_ok": true,
+      "mirror_offset_mm": -21.700000000000003,
+      "vol_left_ml": 28.6,
+      "vol_right_ml": 33.85,
+      "vol_ratio": 0.844903988183161
+     },
+     {
+      "pair": "level_II",
+      "x_left": 27.8,
+      "x_right": 251.0,
+      "side_ok": false,
+      "mirror_offset_mm": 278.8,
+      "vol_left_ml": 30.94,
+      "vol_right_ml": 74.99,
+      "vol_ratio": 0.4125883451126817
+     },
+     {
+      "pair": "level_III",
+      "x_left": 28.1,
+      "x_right": -38.9,
+      "side_ok": true,
+      "mirror_offset_mm": -10.799999999999997,
+      "vol_left_ml": 19.43,
+      "vol_right_ml": 16.5,
+      "vol_ratio": 1.1775757575757575
+     },
+     {
+      "pair": "level_IVa",
+      "x_left": 31.4,
+      "x_right": -37.1,
+      "side_ok": true,
+      "mirror_offset_mm": -5.700000000000003,
+      "vol_left_ml": 12.8,
+      "vol_right_ml": 15.52,
+      "vol_ratio": 0.8247422680412372
+     },
+     {
+      "pair": "level_IVb",
+      "x_left": 40.6,
+      "x_right": -37.4,
+      "side_ok": true,
+      "mirror_offset_mm": 3.200000000000003,
+      "vol_left_ml": 21.62,
+      "vol_right_ml": 22.47,
+      "vol_ratio": 0.9621717846016913
+     },
+     {
+      "pair": "level_V",
+      "x_left": 63.4,
+      "x_right": 208.1,
+      "side_ok": false,
+      "mirror_offset_mm": 271.5,
+      "vol_left_ml": 39.66,
+      "vol_right_ml": 242.76,
+      "vol_ratio": 0.16337123084527927
+     },
+     {
+      "pair": "level_VIIb",
+      "x_left": 19.4,
+      "x_right": -37.1,
+      "side_ok": true,
+      "mirror_offset_mm": -17.700000000000003,
+      "vol_left_ml": 3.53,
+      "vol_right_ml": 3.26,
+      "vol_ratio": 1.0828220858895705
+     },
+     {
+      "pair": "level_VIII",
+      "x_left": 42.6,
+      "x_right": -64.3,
+      "side_ok": true,
+      "mirror_offset_mm": -21.699999999999996,
+      "vol_left_ml": 19.83,
+      "vol_right_ml": 21.0,
+      "vol_ratio": 0.9442857142857142
+     }
+    ],
+    "missing_side": [],
+    "all_sides_correct": false,
+    "carotid_x": {
+     "ica_left": 17.2,
+     "ica_right": -35.3
+    },
+    "cranio_caudal_order": {
+     "left": {
+      "chain": [
+       [
+        "level_II_left",
+        -238.4
+       ],
+       [
+        "level_III_left",
+        -282.5
+       ],
+       [
+        "level_IVa_left",
+        -314.1
+       ],
+       [
+        "level_IVb_left",
+        -332.8
+       ]
+      ],
+      "monotonic_superior_to_inferior": true
+     },
+     "right": {
+      "chain": [
+       [
+        "level_II_right",
+        -97.8
+       ],
+       [
+        "level_III_right",
+        -279.6
+       ],
+       [
+        "level_IVa_right",
+        -315.5
+       ],
+       [
+        "level_IVb_right",
+        -336.7
+       ]
+      ],
+      "monotonic_superior_to_inferior": true
+     }
+    },
+    "count_left": 8,
+    "count_right": 8,
+    "midline": [
+     "level_Ia",
+     "level_VIIa",
+     "level_VIa",
+     "level_VIb"
+    ],
+    "midline_offset_mm": {
+     "level_Ia": -10.0,
+     "level_VIIa": -9.2,
+     "level_VIa": 26.6,
+     "level_VIb": -2.5
+    }
+   }
+  },
+  "case_12": {
+   "present": [
+    "level_III_left",
+    "level_III_right",
+    "level_II_left",
+    "level_II_right",
+    "level_IVa_left",
+    "level_IVa_right",
+    "level_IVb_left",
+    "level_IVb_right",
+    "level_Ia",
+    "level_Ib_left",
+    "level_Ib_right",
+    "level_VIII_left",
+    "level_VIII_right",
+    "level_VIIa",
+    "level_VIIb_left",
+    "level_VIIb_right",
+    "level_VIa",
+    "level_VIb",
+    "level_V_left",
+    "level_V_right"
+   ],
+   "n_present": 20,
+   "checks": {
+    "bilateral": [
+     {
+      "pair": "level_Ib",
+      "x_left": 31.1,
+      "x_right": -27.2,
+      "side_ok": true,
+      "mirror_offset_mm": 3.900000000000002,
+      "vol_left_ml": 28.29,
+      "vol_right_ml": 28.28,
+      "vol_ratio": 1.0003536067892502
+     },
+     {
+      "pair": "level_II",
+      "x_left": 41.6,
+      "x_right": 249.0,
+      "side_ok": false,
+      "mirror_offset_mm": 290.6,
+      "vol_left_ml": 37.91,
+      "vol_right_ml": 68.11,
+      "vol_ratio": 0.5565996182645719
+     },
+     {
+      "pair": "level_III",
+      "x_left": 38.4,
+      "x_right": -35.6,
+      "side_ok": true,
+      "mirror_offset_mm": 2.799999999999997,
+      "vol_left_ml": 19.42,
+      "vol_right_ml": 18.76,
+      "vol_ratio": 1.035181236673774
+     },
+     {
+      "pair": "level_IVa",
+      "x_left": 35.9,
+      "x_right": -34.8,
+      "side_ok": true,
+      "mirror_offset_mm": 1.1000000000000014,
+      "vol_left_ml": 15.85,
+      "vol_right_ml": 18.14,
+      "vol_ratio": 0.8737596471885336
+     },
+     {
+      "pair": "level_IVb",
+      "x_left": 33.5,
+      "x_right": -40.1,
+      "side_ok": true,
+      "mirror_offset_mm": -6.600000000000001,
+      "vol_left_ml": 20.02,
+      "vol_right_ml": 19.67,
+      "vol_ratio": 1.0177935943060497
+     },
+     {
+      "pair": "level_V",
+      "x_left": 67.3,
+      "x_right": 200.1,
+      "side_ok": false,
+      "mirror_offset_mm": 267.4,
+      "vol_left_ml": 27.76,
+      "vol_right_ml": 179.57,
+      "vol_ratio": 0.15459152419669211
+     },
+     {
+      "pair": "level_VIIb",
+      "x_left": 30.6,
+      "x_right": -23.6,
+      "side_ok": true,
+      "mirror_offset_mm": 7.0,
+      "vol_left_ml": 4.65,
+      "vol_right_ml": 5.85,
+      "vol_ratio": 0.7948717948717949
+     },
+     {
+      "pair": "level_VIII",
+      "x_left": 56.3,
+      "x_right": -50.7,
+      "side_ok": true,
+      "mirror_offset_mm": 5.599999999999994,
+      "vol_left_ml": 21.12,
+      "vol_right_ml": 17.18,
+      "vol_ratio": 1.2293364377182772
+     }
+    ],
+    "missing_side": [],
+    "all_sides_correct": false,
+    "carotid_x": {
+     "ica_left": 32.7,
+     "ica_right": -27.1
+    },
+    "cranio_caudal_order": {
+     "left": {
+      "chain": [
+       [
+        "level_II_left",
+        -18.6
+       ],
+       [
+        "level_III_left",
+        -67.2
+       ],
+       [
+        "level_IVa_left",
+        -110.0
+       ],
+       [
+        "level_IVb_left",
+        -132.2
+       ]
+      ],
+      "monotonic_superior_to_inferior": true
+     },
+     "right": {
+      "chain": [
+       [
+        "level_II_right",
+        133.2
+       ],
+       [
+        "level_III_right",
+        -67.6
+       ],
+       [
+        "level_IVa_right",
+        -110.0
+       ],
+       [
+        "level_IVb_right",
+        -132.6
+       ]
+      ],
+      "monotonic_superior_to_inferior": true
+     }
+    },
+    "count_left": 8,
+    "count_right": 8,
+    "midline": [
+     "level_Ia",
+     "level_VIIa",
+     "level_VIa",
+     "level_VIb"
+    ],
+    "midline_offset_mm": {
+     "level_Ia": 3.6,
+     "level_VIIa": 1.6,
+     "level_VIa": -8.0,
+     "level_VIb": -2.9
+    }
+   }
+  }
+ },
+ "laterality": {
+  "case_01": [
+   {
+    "gt": "OAR_A_Carotid_L",
+    "pred": "internal_carotid_artery_left",
+    "side": "left",
+    "gt_centroid_x": 23.9,
+    "pred_centroid_x": 28.0,
+    "gt_side_ok": true,
+    "pred_side_ok": true,
+    "agree": true
+   },
+   {
+    "gt": "OAR_A_Carotid_R",
+    "pred": "internal_carotid_artery_right",
+    "side": "right",
+    "gt_centroid_x": -29.4,
+    "pred_centroid_x": -32.2,
+    "gt_side_ok": true,
+    "pred_side_ok": true,
+    "agree": true
+   },
+   {
+    "gt": "OAR_Parotid_L",
+    "pred": "parotid_gland_left",
+    "side": "left",
+    "gt_centroid_x": 55.4,
+    "pred_centroid_x": 60.1,
+    "gt_side_ok": true,
+    "pred_side_ok": true,
+    "agree": true
+   },
+   {
+    "gt": "OAR_Parotid_R",
+    "pred": "parotid_gland_right",
+    "side": "right",
+    "gt_centroid_x": -64.8,
+    "pred_centroid_x": -62.7,
+    "gt_side_ok": true,
+    "pred_side_ok": true,
+    "agree": true
+   },
+   {
+    "gt": "OAR_Glnd_Submand_L",
+    "pred": "submandibular_gland_left",
+    "side": "left",
+    "gt_centroid_x": 27.8,
+    "pred_centroid_x": 27.5,
+    "gt_side_ok": true,
+    "pred_side_ok": true,
+    "agree": true
+   },
+   {
+    "gt": "OAR_Glnd_Submand_R",
+    "pred": "submandibular_gland_right",
+    "side": "right",
+    "gt_centroid_x": -34.6,
+    "pred_centroid_x": -34.7,
+    "gt_side_ok": true,
+    "pred_side_ok": true,
+    "agree": true
+   },
+   {
+    "gt": "OAR_Eye_PL",
+    "pred": "eye_left",
+    "side": "left",
+    "gt_centroid_x": 30.4,
+    "pred_centroid_x": 30.8,
+    "gt_side_ok": true,
+    "pred_side_ok": true,
+    "agree": true
+   },
+   {
+    "gt": "OAR_Eye_PR",
+    "pred": "eye_right",
+    "side": "right",
+    "gt_centroid_x": -34.0,
+    "pred_centroid_x": -34.5,
+    "gt_side_ok": true,
+    "pred_side_ok": true,
+    "agree": true
+   }
+  ],
+  "case_05": [
+   {
+    "gt": "OAR_A_Carotid_L",
+    "pred": "internal_carotid_artery_left",
+    "side": "left",
+    "gt_centroid_x": 16.4,
+    "pred_centroid_x": 17.2,
+    "gt_side_ok": true,
+    "pred_side_ok": true,
+    "agree": true
+   },
+   {
+    "gt": "OAR_A_Carotid_R",
+    "pred": "internal_carotid_artery_right",
+    "side": "right",
+    "gt_centroid_x": -25.5,
+    "pred_centroid_x": -35.3,
+    "gt_side_ok": true,
+    "pred_side_ok": true,
+    "agree": true
+   },
+   {
+    "gt": "OAR_Parotid_L",
+    "pred": "parotid_gland_left",
+    "side": "left",
+    "gt_centroid_x": 42.5,
+    "pred_centroid_x": 47.6,
+    "gt_side_ok": true,
+    "pred_side_ok": true,
+    "agree": true
+   },
+   {
+    "gt": "OAR_Parotid_R",
+    "pred": "parotid_gland_right",
+    "side": "right",
+    "gt_centroid_x": -63.2,
+    "pred_centroid_x": -70.4,
+    "gt_side_ok": true,
+    "pred_side_ok": true,
+    "agree": true
+   },
+   {
+    "gt": "OAR_Glnd_Submand_L",
+    "pred": "submandibular_gland_left",
+    "side": "left",
+    "gt_centroid_x": 20.4,
+    "pred_centroid_x": 19.1,
+    "gt_side_ok": true,
+    "pred_side_ok": true,
+    "agree": true
+   },
+   {
+    "gt": "OAR_Glnd_Submand_R",
+    "pred": "submandibular_gland_right",
+    "side": "right",
+    "gt_centroid_x": -33.9,
+    "pred_centroid_x": -38.9,
+    "gt_side_ok": true,
+    "pred_side_ok": true,
+    "agree": true
+   },
+   {
+    "gt": "OAR_Eye_PL",
+    "pred": "eye_left",
+    "side": "left",
+    "gt_centroid_x": 25.0,
+    "pred_centroid_x": 25.3,
+    "gt_side_ok": true,
+    "pred_side_ok": true,
+    "agree": true
+   },
+   {
+    "gt": "OAR_Eye_PR",
+    "pred": "eye_right",
+    "side": "right",
+    "gt_centroid_x": -39.1,
+    "pred_centroid_x": -39.3,
+    "gt_side_ok": true,
+    "pred_side_ok": true,
+    "agree": true
+   }
+  ],
+  "case_12": [
+   {
+    "gt": "OAR_A_Carotid_L",
+    "pred": "internal_carotid_artery_left",
+    "side": "left",
+    "gt_centroid_x": 25.0,
+    "pred_centroid_x": 32.7,
+    "gt_side_ok": true,
+    "pred_side_ok": true,
+    "agree": true
+   },
+   {
+    "gt": "OAR_A_Carotid_R",
+    "pred": "internal_carotid_artery_right",
+    "side": "right",
+    "gt_centroid_x": -27.0,
+    "pred_centroid_x": -27.1,
+    "gt_side_ok": true,
+    "pred_side_ok": true,
+    "agree": true
+   },
+   {
+    "gt": "OAR_Parotid_L",
+    "pred": "parotid_gland_left",
+    "side": "left",
+    "gt_centroid_x": 57.5,
+    "pred_centroid_x": 61.6,
+    "gt_side_ok": true,
+    "pred_side_ok": true,
+    "agree": true
+   },
+   {
+    "gt": "OAR_Parotid_R",
+    "pred": "parotid_gland_right",
+    "side": "right",
+    "gt_centroid_x": -52.8,
+    "pred_centroid_x": -56.4,
+    "gt_side_ok": true,
+    "pred_side_ok": true,
+    "agree": true
+   },
+   {
+    "gt": "OAR_Glnd_Submand_L",
+    "pred": "submandibular_gland_left",
+    "side": "left",
+    "gt_centroid_x": 31.9,
+    "pred_centroid_x": 32.8,
+    "gt_side_ok": true,
+    "pred_side_ok": true,
+    "agree": true
+   },
+   {
+    "gt": "OAR_Glnd_Submand_R",
+    "pred": "submandibular_gland_right",
+    "side": "right",
+    "gt_centroid_x": -29.9,
+    "pred_centroid_x": -31.5,
+    "gt_side_ok": true,
+    "pred_side_ok": true,
+    "agree": true
+   },
+   {
+    "gt": "OAR_Eye_PL",
+    "pred": "eye_left",
+    "side": "left",
+    "gt_centroid_x": 27.4,
+    "pred_centroid_x": 27.9,
+    "gt_side_ok": true,
+    "pred_side_ok": true,
+    "agree": true
+   },
+   {
+    "gt": "OAR_Eye_PR",
+    "pred": "eye_right",
+    "side": "right",
+    "gt_centroid_x": -31.5,
+    "pred_centroid_x": -31.9,
+    "gt_side_ok": true,
+    "pred_side_ok": true,
+    "agree": true
+   }
+  ]
+ },
+ "total_wall_min": 6.6
+}

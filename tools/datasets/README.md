@@ -144,6 +144,120 @@ per-organ `*.seg.nrrd` files stay next to the raw data; `manifest.json` lists
 them per case under `organ_files`. Converting contours to DICOM RTSTRUCT is a
 later task.
 
+### MR T1 conversion (added 2026-09-17)
+
+`nrrd_to_dicom.py` also converts each case's `*_IMG_MR_T1.nrrd` into a DICOM MR
+series under `...\public\HaN-Seg\<case>\MR\`:
+
+| Attribute | Value |
+|---|---|
+| Modality / SOPClassUID | `MR` / `1.2.840.10008.5.1.4.1.1.4` |
+| SeriesDescription | `HaN-Seg MR T1` |
+| SeriesNumber | `2` (the CT is `1`) |
+| StudyInstanceUID | **the same UID as the case's CT** — one study, two series |
+| FrameOfReferenceUID | **its own**, deterministically derived; *not* the CT's — see below |
+| PixelData | `uint16` when the volume is non-negative and fits (all 42 cases), `int16` when it is signed and fits, otherwise `uint16` with `RescaleIntercept = floor(min)` |
+| RescaleIntercept / Slope | `0` / `1` for all 42 cases, so stored values **are** the NRRD values |
+| PhotometricInterpretation | `MONOCHROME2` |
+| ScanningSequence / SequenceVariant | `RM` (research mode) / `NONE` |
+| MRAcquisitionType | `2D` |
+| TE / TR / TI / flip angle / field strength | **absent** |
+| Geometry | identical rules to the CT (IOP from the direction cosines, per-slice IPP, PixelSpacing `(dy, dx)`, SliceThickness and SpacingBetweenSlices = `spacing_z`) |
+
+**Why no TE/TR.** HaN-Seg ships NRRD, which carries no MR acquisition
+metadata at all. `ScanningSequence` and `SequenceVariant` are Type 1 in the MR
+Image module and must have *some* value, so they get `RM` / `NONE`, which is
+the honest "not a named sequence". Everything that is genuinely unknown is left
+absent rather than invented. The backend's `sequence_kind` still resolves to
+`T1` — from the SeriesDescription, which is the one thing the dataset does tell
+us.
+
+**GDCM overwrites SpacingBetweenSlices.** SimpleITK's `ImageFileWriter` uses
+GDCM, and GDCM writes `(0018,0088)` itself for an *MR Image* SOP instance —
+`1` for a 2D slice, silently discarding the value in the metadata dictionary.
+`SliceThickness` survives, so the discrepancy is easy to miss: the volume
+geometry the backend derives from `ImagePositionPatient` stays right, but
+`is_thick` and any client reading `(0018,0088)` are wrong.
+`fix_mr_spacing()` patches it back with pydicom after the write, and
+`verify_mr()` now asserts both tags equal `spacing_z`. The CT path is not
+affected.
+
+#### The MR is *not* in the CT frame of reference — measured, not assumed
+
+The HaN-Seg paper describes CT and T1 MR acquired for one radiotherapy planning
+episode, which makes it tempting to give both series the same
+`FrameOfReferenceUID`. `mr_alignment()` checks instead of assuming: it maps
+every voxel of the CT-space OAR contours (mandible, brainstem, both parotids)
+into the MR grid under the **identity** transform and counts how many land
+inside the MR field of view. The per-case result is stored in `manifest.json`
+under `mr_alignment`.
+
+Across all 42 cases:
+
+| contour voxels inside the MR FOV under identity | cases |
+|---|---|
+| < 0.1 % | 22 |
+| 0.1 – 50 % | 3 |
+| 50 – 90 % | 10 |
+| 90 – 100 % | 7 |
+
+mean 36.1 %, median 0 %. The stored origins differ by up to **1096 mm in z**
+(case_02), and 10 cases have literally zero bounding-box overlap in z. So the
+released NRRD volumes are in their original, unregistered scanner coordinates,
+and **every** MR series is written with its own `FrameOfReferenceUID`.
+
+High containment does not mean alignment, either — it only means the MR's
+bounding box happens to contain the contours. Registering CT to MR with
+`POST /api/registration` (rigid, 2 mm, no mask) moves the MR by **111–606 mm**
+even on the cases with 90–100 % containment. Three worked examples, with the
+fraction of each CT-space contour that falls on MR tissue before and after:
+
+| case | wall | translation | rotation | NMI | head-outline Dice | brainstem | parotid L / R | mandible |
+|---|---|---|---|---|---|---|---|---|
+| case_01 | 34.3 s | 606.1 mm | 0.55° | n/a → 1.206 | n/a → 0.833 | 0 → 100 % | 0 → 99.7 / 99.7 % | 0 → 44.7 % |
+| case_30 | 21.6 s | 113.2 mm | 1.64° | 1.022 → 1.171 | 0.339 → 0.815 | 0 → 97.8 % | 22.4 → 97.8 % / 0.3 → 98.7 % | 53.9 → 62.1 % |
+| case_12 | 22.6 s | 111.0 mm | 0.30° | 1.008 → 1.180 | 0.244 → 0.687 | 0 → 97.2 % | 4.2 → 99.4 % / 0.6 → 99.5 % | 36.6 → 33.6 % |
+
+(`n/a` where the two series do not overlap at all under their stored geometry,
+so "before" is undefined.) The mandible stays low on purpose: cortical bone is
+a signal void on T1, so "falls on MR tissue" undercounts it by construction,
+and the mandible body extends below the inferior edge of the MR field of view.
+
+**Mask choice matters more than the mode.** On case_01, `mask: "body"` gave
+NMI 1.205 / Dice 0.933 but on case_12 the same setting converged to a
+100 mm superior slip (NMI 1.018, brainstem coverage 0 %), while `mask: null`
+succeeded on all three. Use `mask: null` for CT↔MR, keep `bone` for CT↔CT, and
+read `quality.nmi_after` every time — 1.17–1.21 is a good fit here and 1.02 is
+a failed one, with no other externally visible difference.
+
+#### MR re-run
+
+```powershell
+$py = "C:\Users\o948145\hnrad\backend\.venv\Scripts\python.exe"
+& $py tools\datasets\nrrd_to_dicom.py --modality mr              # convert + verify + measure
+& $py tools\datasets\nrrd_to_dicom.py --modality mr --verify-only
+& $py tools\datasets\nrrd_to_dicom.py --modality both --force    # rewrite everything
+& $py tools\datasets\nrrd_to_dicom.py --modality mr --no-alignment
+```
+
+Run of record (2026-09-17): 42/42 MR series written and verified OK, 3613
+slices, pixels bit-identical to the source NRRD in every case, all with
+`RescaleIntercept 0 / Slope 1`. `POST /api/import` over
+`...\studies\public\HaN-Seg` then reports 42 patients / 42 studies / **84
+series** / 11 194 instances, and `GET /api/studies` shows all 42 studies with
+modalities `["CT", "MR"]`, each MR classified `sequence_kind: "T1"`,
+`acquired_plane: "AX"`, `is_thick: true` for the 32 cases at 3–6 mm and
+`false` for the 10 at 1.7 mm.
+
+#### ⚠️ Do not commit `thumb_hanseg_mr.png`
+
+`tools/datasets/thumb_hanseg_mr.png` is a 7x4 montage of the first 28 MR
+thumbnails straight out of `GET /api/series/{uid}/thumbnail`, kept as local
+evidence that the modality-aware window works (a fixed W350/L40 renders every
+one of them black). It renders HaN-Seg pixel data, so the `NoDerivatives`
+clause applies exactly as it does to `thumb_hanseg.png`. `.gitignore` already
+covers it via `tools/datasets/thumb_*.png`.
+
 ---
 
 ## B. TCIA HNSCC / Head-Neck-PET-CT — ⛔ GATED, NOT DOWNLOADED

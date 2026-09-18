@@ -29,6 +29,7 @@ __all__ = [
     "connect",
     "init_db",
     "ensure_db",
+    "migrate",
     "upsert_patient",
     "upsert_study",
     "upsert_series",
@@ -39,11 +40,44 @@ __all__ = [
     "get_series",
     "get_series_instances",
     "get_instance",
+    "get_series_window",
+    "set_series_window",
     "counts",
 ]
 
 _init_lock = threading.Lock()
 _initialised: set[str] = set()
+
+# v0.4 additive migration.  Every column here is added to an existing database
+# with ALTER TABLE ADD COLUMN, which sqlite does in O(1) without rewriting the
+# table and which is therefore safe on a library that is already populated.
+# Adding to this tuple is the *only* supported way to extend the series row:
+# nothing is ever dropped or renamed, so an older backend keeps working against
+# a newer database.
+SERIES_V04_COLUMNS: tuple[tuple[str, str], ...] = (
+    # --- MR acquisition parameters, verbatim from the header ---------------
+    ("scanning_sequence", "TEXT"),
+    ("sequence_variant", "TEXT"),
+    ("scan_options", "TEXT"),
+    ("image_type", "TEXT"),
+    ("echo_time", "REAL"),
+    ("repetition_time", "REAL"),
+    ("inversion_time", "REAL"),
+    ("flip_angle", "REAL"),
+    ("magnetic_field_strength", "REAL"),
+    ("contrast_agent", "TEXT"),
+    # --- derived, modality aware -------------------------------------------
+    ("has_contrast", "INTEGER"),        # bool: ContrastBolusAgent or "post"
+    ("kernel", "TEXT"),                 # CT ConvolutionKernel
+    ("sequence_kind", "TEXT"),          # hnrad.mr.SEQUENCE_KINDS, MR only
+    ("acquired_plane", "TEXT"),         # AX / COR / SAG / OBL
+    ("is_thick", "INTEGER"),            # bool: through-plane spacing > 2.5 mm
+    # --- cached auto window (GET /api/series/{uid}/window) -------------------
+    ("window_lower", "REAL"),
+    ("window_upper", "REAL"),
+    ("window_method", "TEXT"),
+    ("window_computed_at", "REAL"),     # unix epoch seconds
+)
 
 SCHEMA = """
 PRAGMA journal_mode=WAL;
@@ -84,6 +118,7 @@ CREATE TABLE IF NOT EXISTS series (
     frame_of_reference_uid  TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_series_study ON series(study_uid);
+CREATE INDEX IF NOT EXISTS idx_series_modality ON series(modality);
 
 CREATE TABLE IF NOT EXISTS instances (
     sop_uid                 TEXT PRIMARY KEY,
@@ -135,14 +170,45 @@ def connect(path: Optional[Path] = None) -> Iterator[sqlite3.Connection]:
         conn.close()
 
 
+def table_columns(conn: sqlite3.Connection, table: str) -> set[str]:
+    """The column names of *table* (empty when the table does not exist)."""
+    return {r["name"] for r in conn.execute(
+        "PRAGMA table_info({t})".format(t=table)).fetchall()}
+
+
+def migrate(conn: sqlite3.Connection) -> list[str]:
+    """Add every missing additive column, in place.  Idempotent.
+
+    Returns the list of columns this call actually added, so a caller (and the
+    tests) can tell a fresh migration from a no-op.  Running it twice is a
+    no-op the second time; running it against a v0.1 database upgrades it
+    without touching a single existing row.
+    """
+    have = table_columns(conn, "series")
+    if not have:                                    # table not created yet
+        return []
+    added: list[str] = []
+    for name, sql_type in SERIES_V04_COLUMNS:
+        if name in have:
+            continue
+        conn.execute("ALTER TABLE series ADD COLUMN {n} {t}".format(
+            n=name, t=sql_type))
+        added.append(name)
+    if added:
+        conn.commit()
+    return added
+
+
 def init_db(path: Optional[Path] = None) -> Path:
-    """Create the schema (idempotent) and return the database path."""
+    """Create the schema (idempotent), migrate it, and return the db path."""
     p = Path(path) if path is not None else config.db_path()
     p.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(p), timeout=30.0)
+    conn.row_factory = sqlite3.Row
     try:
         conn.executescript(SCHEMA)
         conn.commit()
+        migrate(conn)
     finally:
         conn.close()
     with _init_lock:
@@ -196,6 +262,9 @@ _SERIES_COLS = (
     "study_uid", "series_number", "modality", "description", "body_part",
     "rows", "cols", "pixel_spacing_row", "pixel_spacing_col", "slice_thickness",
     "spacing_between_slices", "orientation", "frame_of_reference_uid",
+) + tuple(
+    # The cached window is written by set_series_window, never by an import.
+    n for n, _t in SERIES_V04_COLUMNS if not n.startswith("window_")
 )
 
 
@@ -347,6 +416,22 @@ def _series_dict(conn: sqlite3.Connection, r: sqlite3.Row) -> dict[str, Any]:
         else None
     )
 
+    def opt_bool(key: str) -> Optional[bool]:
+        v = d.get(key)
+        return None if v is None else bool(v)
+
+    def opt_float(key: str) -> Optional[float]:
+        v = d.get(key)
+        return None if v is None else float(v)
+
+    window = None
+    if d.get("window_lower") is not None and d.get("window_upper") is not None:
+        window = {
+            "lower": float(d["window_lower"]),
+            "upper": float(d["window_upper"]),
+            "method": d.get("window_method"),
+        }
+
     return {
         "series_uid": series_uid,
         "study_uid": d.get("study_uid"),
@@ -363,6 +448,22 @@ def _series_dict(conn: sqlite3.Connection, r: sqlite3.Row) -> dict[str, Any]:
         "orientation": orientation,
         "is_multiframe": is_multiframe,
         "is_3d": is_3d,
+        # --- v0.4: modality-specific metadata -----------------------------
+        "frame_of_reference_uid": d.get("frame_of_reference_uid"),
+        "sequence_kind": d.get("sequence_kind"),
+        "acquired_plane": d.get("acquired_plane"),
+        "is_thick": opt_bool("is_thick"),
+        "scanning_sequence": d.get("scanning_sequence"),
+        "sequence_variant": d.get("sequence_variant"),
+        "echo_time": opt_float("echo_time"),
+        "repetition_time": opt_float("repetition_time"),
+        "inversion_time": opt_float("inversion_time"),
+        "flip_angle": opt_float("flip_angle"),
+        "magnetic_field_strength": opt_float("magnetic_field_strength"),
+        "contrast_agent": d.get("contrast_agent"),
+        "has_contrast": opt_bool("has_contrast"),
+        "kernel": d.get("kernel"),
+        "window": window,
     }
 
 
@@ -399,6 +500,48 @@ def get_instance(conn: sqlite3.Connection, sop_uid: str) -> Optional[sqlite3.Row
     return conn.execute(
         "SELECT * FROM instances WHERE sop_uid = ?", (sop_uid,)
     ).fetchone()
+
+
+def get_series_window(
+    conn: sqlite3.Connection, series_uid: str
+) -> Optional[dict[str, Any]]:
+    """The cached auto window for a series, or ``None`` when never computed."""
+    r = conn.execute(
+        "SELECT window_lower, window_upper, window_method, window_computed_at"
+        " FROM series WHERE series_uid = ?",
+        (series_uid,),
+    ).fetchone()
+    if r is None or r["window_lower"] is None or r["window_upper"] is None:
+        return None
+    return {
+        "lower": float(r["window_lower"]),
+        "upper": float(r["window_upper"]),
+        "method": r["window_method"],
+        "computed_at": (
+            float(r["window_computed_at"])
+            if r["window_computed_at"] is not None else None
+        ),
+    }
+
+
+def set_series_window(
+    conn: sqlite3.Connection,
+    series_uid: str,
+    lower: float,
+    upper: float,
+    method: str,
+    computed_at: Optional[float] = None,
+) -> None:
+    """Cache the auto window for a series (unconditional overwrite)."""
+    import time as _time
+
+    conn.execute(
+        "UPDATE series SET window_lower = ?, window_upper = ?,"
+        " window_method = ?, window_computed_at = ? WHERE series_uid = ?",
+        (float(lower), float(upper), str(method),
+         float(computed_at if computed_at is not None else _time.time()),
+         series_uid),
+    )
 
 
 def study_exists(conn: sqlite3.Connection, study_uid: str) -> bool:

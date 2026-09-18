@@ -18,7 +18,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
-from . import __version__, ai, airway, analysis, config, db, segmentation
+from . import (__version__, ai, airway, analysis, config, db, mr,
+               registration, segmentation)
 from .indexer import index_path
 
 # --------------------------------------------------------------------------
@@ -183,16 +184,23 @@ def api_instance(sop_uid: str) -> FileResponse:
 def api_thumbnail(series_uid: str) -> Response:
     db.ensure_db()
     with db.connect() as conn:
-        if db.get_series(conn, series_uid) is None:
+        series = db.get_series(conn, series_uid)
+        if series is None:
             raise HTTPException(status_code=404, detail="unknown series_uid")
         rows = db.get_series_instances(conn, series_uid)
+        cached_window = db.get_series_window(conn, series_uid)
     if not rows:
         raise HTTPException(status_code=404, detail="series has no instances")
 
     ordered = analysis.sorted_instances(rows)
     middle = ordered[len(ordered) // 2][0]
     try:
-        png = analysis.render_thumbnail(series_uid, middle)
+        png = analysis.render_thumbnail(
+            series_uid, middle,
+            modality=series.get("modality"),
+            lower=cached_window["lower"] if cached_window else None,
+            upper=cached_window["upper"] if cached_window else None,
+        )
     except analysis.AnalysisError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return Response(
@@ -316,6 +324,7 @@ class AirwayRequest(BaseModel):
     glottis_slice: Optional[int] = None
     reference: str = "auto"
     ref_range_k: Optional[list[int]] = None
+    cap_at_glottis: bool = False
 
 
 def _series_volume(series_uid: str) -> analysis.SeriesVolume:
@@ -511,6 +520,7 @@ def api_airway(body: AirwayRequest) -> dict[str, Any]:
             glottis_slice=body.glottis_slice,
             reference=body.reference,
             ref_range_k=body.ref_range_k,
+            cap_at_glottis=body.cap_at_glottis,
         )
         stats = segmentation.mask_stats(vol, mask, took_ms=result["took_ms"])
     except analysis.AnalysisError as exc:
@@ -605,3 +615,250 @@ def api_ai_job_cancel(job_id: str) -> dict[str, Any]:
     log.info("DELETE /api/ai/jobs/%s -> %s", job_id, job.status)
     return {"job_id": job.job_id, "status": job.status,
             "cancelled": job.status not in ("done",)}
+
+
+# --------------------------------------------------------------------------
+# MR and registration v0.4
+#
+# Two additions the CT-only backend did not need: an auto window (a fixed HU
+# window renders an MR as a black square) and registration between two series
+# that may not share a frame of reference at all.
+# --------------------------------------------------------------------------
+
+class RegistrationRequest(BaseModel):
+    fixed_series_uid: str
+    moving_series_uid: str
+    mode: str = "rigid"
+    mask: Optional[str] = None
+    resample_mm: float = registration.DEFAULT_RESAMPLE_MM
+    force: bool = False
+
+
+class ResampleRequest(BaseModel):
+    label_id: Optional[str] = None
+    series: Optional[str] = None
+
+
+class TransformPointsRequest(BaseModel):
+    points_lps: list[list[float]] = Field(..., min_length=1)
+    direction: str = "fixed_to_moving"
+
+
+@app.get("/api/series/{series_uid}/window")
+def api_series_window(
+    series_uid: str,
+    refresh: bool = Query(default=False),
+) -> dict[str, Any]:
+    """The display window a viewer should apply when this series is opened.
+
+    CT answers instantly with the fixed W350/L40 soft-tissue neck window.
+    Everything else reads a strided sample of up to
+    ``hnrad.mr.WINDOW_SLICE_SAMPLES`` slices and returns the 1st-99th
+    percentile of the non-zero voxels.  The result is cached in the series row,
+    so the second call is a single SELECT.
+    """
+    started = time.perf_counter()
+    db.ensure_db()
+    with db.connect() as conn:
+        series = db.get_series(conn, series_uid)
+        if series is None:
+            raise HTTPException(status_code=404, detail="unknown series_uid")
+        if not refresh:
+            cached = db.get_series_window(conn, series_uid)
+            if cached is not None:
+                cached["cached"] = True
+                return cached
+        rows = db.get_series_instances(conn, series_uid)
+    if not rows:
+        raise HTTPException(status_code=404, detail="series has no instances")
+
+    win = mr.volume_window(series_uid, rows, series.get("modality"))
+    with db.connect() as conn:
+        db.set_series_window(conn, series_uid, win["lower"], win["upper"],
+                             win["method"])
+    win["cached"] = False
+    log.info("GET /api/series/%s/window -> [%.1f, %.1f] %s (%s slices) in %.3fs",
+             series_uid, win["lower"], win["upper"], win["method"],
+             win.get("n_slices_sampled"), time.perf_counter() - started)
+    return win
+
+
+def _registration_or_404(registration_id: str) -> registration.Registration:
+    reg = registration.get(registration_id)
+    if reg is None:
+        raise HTTPException(status_code=404, detail="unknown registration_id")
+    return reg
+
+
+@app.post("/api/registration")
+def api_registration(body: RegistrationRequest) -> dict[str, Any]:
+    started = time.perf_counter()
+    _series_rows(body.fixed_series_uid)              # 404 early
+    _series_rows(body.moving_series_uid)
+    try:
+        reg, cached = registration.register(
+            body.fixed_series_uid,
+            body.moving_series_uid,
+            mode=body.mode,
+            mask=body.mask,
+            resample_mm=body.resample_mm,
+            force=body.force,
+        )
+    except registration.RegistrationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except analysis.AnalysisError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    out = reg.public()
+    out["cached"] = cached
+    log.info("POST /api/registration %s <- %s mode=%s cached=%s in %.3fs",
+             body.fixed_series_uid[-16:], body.moving_series_uid[-16:],
+             body.mode, cached, time.perf_counter() - started)
+    return out
+
+
+@app.get("/api/registration/{registration_id}")
+def api_registration_get(registration_id: str) -> dict[str, Any]:
+    out = _registration_or_404(registration_id).public()
+    out["cached"] = True
+    return out
+
+
+@app.post("/api/registration/{registration_id}/resample")
+def api_registration_resample(
+    registration_id: str, body: Optional[ResampleRequest] = None
+) -> dict[str, Any]:
+    """Warp the moving label -- or the moving volume -- into the fixed frame.
+
+    With ``label_id`` the warped mask is registered as a **new label** on the
+    fixed series, so every v0.2 label route works on it unchanged.  With
+    ``series: 'moving'`` the resampled moving volume is cached for display and
+    ``GET /api/registration/{id}/moving-slice`` renders it.
+    """
+    started = time.perf_counter()
+    reg = _registration_or_404(registration_id)
+    label_id = body.label_id if body is not None else None
+    series = (body.series if body is not None else None) or (
+        None if label_id else "moving")
+
+    if label_id and series:
+        raise HTTPException(
+            status_code=400, detail="give either label_id or series, not both")
+
+    try:
+        if label_id:
+            label = _label_or_404(label_id)
+            if label.series_uid != reg.moving_series_uid:
+                raise HTTPException(
+                    status_code=400,
+                    detail="label {i} belongs to {a}, not to the moving series"
+                           " {b}".format(i=label_id, a=label.series_uid,
+                                         b=reg.moving_series_uid))
+            warped = registration.resample_label(reg, label.mask)
+            vol = _series_volume(reg.fixed_series_uid)
+            took_ms = (time.perf_counter() - started) * 1000.0
+            stats = segmentation.mask_stats(vol, warped, took_ms=took_ms)
+            new_label = segmentation.LABELS.put(
+                reg.fixed_series_uid, warped,
+                {"kind": "registration-resample", "stats": stats,
+                 "registration_id": reg.registration_id,
+                 "source_label_id": label_id},
+            )
+            log.info("POST /api/registration/%s/resample label=%s -> %s"
+                     " n=%d in %.3fs", registration_id, label_id,
+                     new_label.label_id, stats["n_voxels"],
+                     time.perf_counter() - started)
+            return {"label_id": new_label.label_id,
+                    "registration_id": reg.registration_id,
+                    "source_label_id": label_id,
+                    "series_uid": reg.fixed_series_uid, **stats}
+
+        if series != "moving":
+            raise HTTPException(status_code=400,
+                                detail="series must be 'moving'")
+        arr = registration.cached_moving(reg)
+        return {
+            "registration_id": reg.registration_id,
+            "series": "moving",
+            "series_uid": reg.moving_series_uid,
+            "shape": [int(v) for v in arr.shape],
+            "took_ms": round((time.perf_counter() - started) * 1000.0, 1),
+        }
+    except registration.RegistrationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except analysis.AnalysisError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/registration/{registration_id}/moving-slice")
+def api_registration_moving_slice(
+    registration_id: str,
+    k: int = Query(default=0, ge=0),
+    size: int = Query(default=512, ge=32, le=2048),
+) -> Response:
+    """Slice *k* of the moving series resampled into the fixed frame, as PNG.
+
+    ``k`` indexes the **fixed** series, so the same ``k`` in
+    ``GET /api/series/{fixed}`` is the slice this one should sit on top of.
+    """
+    started = time.perf_counter()
+    reg = _registration_or_404(registration_id)
+    try:
+        arr = registration.cached_moving(reg)
+    except registration.RegistrationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except analysis.AnalysisError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    if k >= arr.shape[0]:
+        raise HTTPException(
+            status_code=400,
+            detail="k must be < {n} (the fixed series slice count)".format(
+                n=arr.shape[0]))
+
+    db.ensure_db()
+    with db.connect() as conn:
+        moving = db.get_series(conn, reg.moving_series_uid)
+    modality = moving.get("modality") if moving else None
+    win = mr.window_for_array(arr, modality)
+
+    from PIL import Image
+
+    plane = arr[int(k)]
+    lower, upper = float(win["lower"]), float(win["upper"])
+    scaled = (plane.astype("float32") - lower) / max(upper - lower, 1e-6)
+    import numpy as _np
+
+    gray = (_np.clip(scaled, 0.0, 1.0) * 255.0).astype("uint8")
+    img = Image.fromarray(gray, mode="L")
+    h, w = gray.shape
+    scale = min(size / float(w), size / float(h), 1.0)
+    if scale < 1.0:
+        img = img.resize((max(1, int(w * scale)), max(1, int(h * scale))),
+                         Image.BILINEAR)
+    import io as _io
+
+    buf = _io.BytesIO()
+    img.save(buf, format="PNG", optimize=True)
+    log.info("GET /api/registration/%s/moving-slice k=%d in %.3fs",
+             registration_id, k, time.perf_counter() - started)
+    return Response(content=buf.getvalue(), media_type="image/png",
+                    headers={"Cache-Control": "public, max-age=3600",
+                             "X-Window-Lower": "{v:.4f}".format(v=lower),
+                             "X-Window-Upper": "{v:.4f}".format(v=upper)})
+
+
+@app.post("/api/registration/{registration_id}/transform-points")
+def api_registration_points(
+    registration_id: str, body: TransformPointsRequest
+) -> dict[str, Any]:
+    reg = _registration_or_404(registration_id)
+    try:
+        out = registration.transform_points(reg, body.points_lps, body.direction)
+    except registration.RegistrationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        "registration_id": reg.registration_id,
+        "direction": body.direction,
+        "points_lps": out,
+    }

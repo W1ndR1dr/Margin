@@ -19,7 +19,7 @@ from typing import Any, Optional, Sequence
 import numpy as np
 import pydicom
 
-from . import config
+from . import config, mr
 from .indexer import orientation_normal, slice_position
 
 log = logging.getLogger("hnrad.analysis")
@@ -461,10 +461,26 @@ def render_thumbnail(
     series_uid: str,
     row: Any,
     size: int = config.THUMBNAIL_SIZE,
-    width: float = config.WINDOW_WIDTH,
-    center: float = config.WINDOW_CENTER,
+    width: Optional[float] = None,
+    center: Optional[float] = None,
+    modality: Optional[str] = None,
+    lower: Optional[float] = None,
+    upper: Optional[float] = None,
 ) -> bytes:
-    """PNG bytes for one instance, windowed, letterboxed onto a black square."""
+    """PNG bytes for one instance, windowed, letterboxed onto a black square.
+
+    The window is chosen in this order:
+
+    1. an explicit ``lower`` / ``upper`` pair (what the cached series window
+       feeds in),
+    2. an explicit ``width`` / ``center`` pair (the v0.1 call shape),
+    3. :func:`hnrad.mr.window_for_array` for the *modality*: CT keeps the fixed
+       W350/L40 neck window, MR / PT / anything without Hounsfield units gets a
+       1st-99th percentile window over the non-zero voxels of this slice.
+
+    A fixed HU window over an MR renders a black square, which is why the
+    modality has to reach this function at all.
+    """
     with _thumb_lock:
         hit = _thumb_cache.get(series_uid)
     if hit is not None:
@@ -475,7 +491,18 @@ def render_thumbnail(
     hu, _row_mm, _col_mm = load_instance_hu(row)
     if hu.ndim == 3:
         hu = hu[hu.shape[0] // 2]
-    gray = _window(hu, width, center)
+
+    if lower is None or upper is None:
+        if width is not None and center is not None:
+            lower = float(center) - float(width) / 2.0
+            upper = float(center) + float(width) / 2.0
+        else:
+            win = mr.window_for_array(hu, modality)
+            lower, upper = float(win["lower"]), float(win["upper"])
+    lower, upper = float(lower), float(upper)
+    if not (upper > lower):
+        upper = lower + 1.0
+    gray = _window(hu, upper - lower, (upper + lower) / 2.0)
 
     img = Image.fromarray(gray, mode="L")
     h, w = gray.shape

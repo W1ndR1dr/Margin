@@ -54,6 +54,16 @@ AIRWAY_PROFILE_K = [0, 14, 18, 21, 25, NZ - 1]
 AIRWAY_PROFILE_R = [6.0, 6.0, 2.5, 2.5, 6.0, 6.0]
 STENOSIS_K = (18, 21)
 
+# An optional wide air blob at the bottom of the volume, swallowing the tube the
+# way a lung apex swallows the trachea below the thoracic inlet.  Off unless a
+# series is written with ``lung=True``; ``test_airway.py`` uses it to check that
+# the centreline walk stops where the trachea stops.  The ellipse reaches 18 mm
+# from the axis, so it stays a hole inside the 21 mm body and its 572 mm2 is
+# comfortably over four times the 113 mm2 trachea.
+LUNG_K = (0, 3)          # inclusive slice range
+LUNG_CX, LUNG_CY = -4.0, 0.0
+LUNG_A, LUNG_B = 14.0, 13.0
+
 ORIGIN = (-(NX - 1) / 2.0 * DX, -(NY - 1) / 2.0 * DY, -10.0)
 
 STUDY_UID = "1.2.826.0.1.3680043.10.1338.1"
@@ -72,7 +82,7 @@ def _grids() -> tuple[np.ndarray, np.ndarray]:
     return np.meshgrid(xs, ys)          # (row j, col i)
 
 
-def slice_hu(k: int) -> np.ndarray:
+def slice_hu(k: int, lung: bool = False) -> np.ndarray:
     """HU image for slice *k*, painted in the same order as the real phantom."""
     X, Y = _grids()
     img = np.full((NY, NX), AIR_HU, dtype=np.float64)
@@ -83,6 +93,9 @@ def slice_hu(k: int) -> np.ndarray:
             img[((X - cx) ** 2 + (Y - cy) ** 2 + dz ** 2) <= r * r] = BRIGHT_HU
     r = airway_radius(k)
     img[((X - AIRWAY_X) ** 2 + (Y - AIRWAY_Y) ** 2) <= r * r] = AIR_HU
+    if lung and LUNG_K[0] <= k <= LUNG_K[1]:
+        img[(((X - LUNG_CX) / LUNG_A) ** 2
+             + ((Y - LUNG_CY) / LUNG_B) ** 2) <= 1.0] = AIR_HU
     return img
 
 
@@ -96,11 +109,19 @@ def lps_of(i: float, j: float, k: float) -> tuple[float, float, float]:
     return (i * DX + ORIGIN[0], j * DY + ORIGIN[1], k * DZ + ORIGIN[2])
 
 
-def write_series(out_dir) -> str:
-    """Write the phantom as a DICOM series and return its SeriesInstanceUID."""
+def write_series(out_dir, lung: bool = False) -> str:
+    """Write the phantom as a DICOM series and return its SeriesInstanceUID.
+
+    With ``lung`` the series gets the wide air blob at the bottom and its own
+    study / series / SOP UIDs, so both variants can live in one data store.
+    """
+    suffix = ".7" if lung else ""
+    study_uid = STUDY_UID + suffix
+    series_uid = SERIES_UID + suffix
+    sop_root = SOP_ROOT + suffix
     out_dir.mkdir(parents=True, exist_ok=True)
     for k in range(NZ):
-        sop_uid = "{r}.{k}".format(r=SOP_ROOT, k=k + 1)
+        sop_uid = "{r}.{k}".format(r=sop_root, k=k + 1)
 
         meta = FileMetaDataset()
         meta.MediaStorageSOPClassUID = CTImageStorage
@@ -114,8 +135,8 @@ def write_series(out_dir) -> str:
 
         ds.SOPClassUID = CTImageStorage
         ds.SOPInstanceUID = sop_uid
-        ds.StudyInstanceUID = STUDY_UID
-        ds.SeriesInstanceUID = SERIES_UID
+        ds.StudyInstanceUID = study_uid
+        ds.SeriesInstanceUID = series_uid
         ds.FrameOfReferenceUID = FOR_UID
 
         ds.PatientID = "SEG001"
@@ -149,11 +170,11 @@ def write_series(out_dir) -> str:
         ds.RescaleSlope = 1.0
         ds.RescaleIntercept = INTERCEPT
 
-        stored = np.rint(slice_hu(k) - INTERCEPT).astype(np.uint16)
+        stored = np.rint(slice_hu(k, lung=lung) - INTERCEPT).astype(np.uint16)
         ds.PixelData = stored.tobytes()
         ds.save_as(str(out_dir / "SEG{n:04d}".format(n=k + 1)),
                    enforce_file_format=True)
-    return SERIES_UID
+    return series_uid
 
 
 # --------------------------------------------------------------------------

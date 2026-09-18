@@ -691,6 +691,10 @@ def _summarise_airway(res: dict[str, Any], glottis_above: bool | None
         "label_id": res.get("label_id"),
         "n_samples": n,
         "csa_ref_mm2": _r(res.get("csa_ref_mm2"), 1),
+        "reference": res.get("reference"),
+        "ref_range_k": res.get("ref_range_k"),
+        "ref_method": res.get("ref_method"),
+        "capped_at_glottis": res.get("capped_at_glottis"),
         "min_csa_mm2": _r(res.get("min_csa_mm2"), 1),
         "min_eq_diameter_mm": _eq_diameter(res.get("min_csa_mm2")),
         "min_csa_index": min_idx,
@@ -726,6 +730,7 @@ def airway_profile(series_uid: str,
                    glottis_slice: int | None = None,
                    reference: str = "auto",
                    ref_range_k: list[int] | None = None,
+                   cap_at_glottis: bool = False,
                    lower_hu: float = -1024.0,
                    upper_hu: float = -400.0) -> dict[str, Any]:
     """Profile the airway: centreline, cross-sectional area, stenosis, grade.
@@ -738,6 +743,10 @@ def airway_profile(series_uid: str,
     reference='auto' takes the 75th percentile of CSA over the healthy samples
     below the minimum; reference='manual' takes the median over ref_range_k =
     [k0, k1] instead. Stenosis % = 100 * (1 - min CSA / reference CSA).
+    cap_at_glottis=true (needs glottis_slice) drops every centreline sample
+    superior to the vocal folds, so the grade describes the laryngotracheal
+    airway rather than the pharynx and nasal cavity the centroid walk climbs
+    into on a real neck CT.
 
     The raw per-sample arrays are NOT returned: you get n_samples, the min/max
     of each, a 12-point CSA-vs-arclength table (index 0 = most caudal), the
@@ -757,6 +766,8 @@ def airway_profile(series_uid: str,
         body["glottis_slice"] = int(glottis_slice)
     if ref_range_k is not None:
         body["ref_range_k"] = [int(v) for v in ref_range_k]
+    if cap_at_glottis:
+        body["cap_at_glottis"] = True
     body.update(_seed_body(seed_ijk, seed_lps))
 
     res = _post("/api/analysis/airway", body, timeout=SLOW_TIMEOUT)

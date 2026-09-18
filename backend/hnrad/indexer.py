@@ -22,7 +22,7 @@ from typing import Any, Iterable, Iterator, Optional, Sequence
 import pydicom
 from pydicom.errors import InvalidDicomError
 
-from . import db
+from . import db, mr
 
 log = logging.getLogger("hnrad.indexer")
 
@@ -242,6 +242,13 @@ def _rows_from_dataset(ds: Any, path: Path) -> tuple[dict, dict, dict, dict]:
         "orientation": json.dumps(iop) if iop else None,
         "frame_of_reference_uid": _s(ds, "FrameOfReferenceUID"),
     }
+    # v0.4: modality-specific columns (MR sequence parameters and the derived
+    # sequence_kind / acquired_plane / is_thick, CT kernel and contrast).  A
+    # booleans-as-INTEGER column wants 0/1, not True/False, so that a row read
+    # back out of sqlite compares equal to what went in.
+    extra = mr.series_metadata(ds, iop)
+    for key, value in extra.items():
+        series[key] = int(value) if isinstance(value, bool) else value
     instance = {
         "sop_uid": sop_uid,
         "series_uid": series_uid,

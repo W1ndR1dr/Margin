@@ -23,6 +23,7 @@ from test_segmentation import (  # noqa: F401  (fixtures are used by name)
     AIRWAY_X,
     AIRWAY_Y,
     DZ,
+    LUNG_K,
     NZ,
     ORIGIN,
     STENOSIS_K,
@@ -31,6 +32,7 @@ from test_segmentation import (  # noqa: F401  (fixtures are used by name)
     seg_client,
     seg_store,
     uid,
+    write_series,
 )
 
 SEED_K = 5                                  # well inside the wide trachea
@@ -47,6 +49,22 @@ def _seed() -> list[int]:
 def k_of_lps(lps) -> float:
     """Slice index of an LPS point in this (axial, +z = +k) phantom."""
     return (lps[2] - ORIGIN[2]) / DZ
+
+
+@pytest.fixture()
+def lung_uid(seg_client, seg_store) -> str:
+    """The same phantom with a wide air blob swallowing the bottom of the tube.
+
+    It lives in its own folder beside the store's ``studies`` tree, so the
+    import the ``seg_client`` fixture does still sees exactly one series.
+    """
+    if "lung_series_uid" not in seg_store:
+        folder = seg_store["root"] / "lung_phantom"
+        seg_store["lung_series_uid"] = write_series(folder, lung=True)
+        r = seg_client.post("/api/import", json={"path": str(folder)})
+        assert r.status_code == 200, r.text
+        assert r.json()["instances"] == NZ
+    return seg_store["lung_series_uid"]
 
 
 @pytest.fixture()
@@ -192,3 +210,128 @@ def test_airway_rejects_a_seed_outside_the_lumen(seg_client, uid):
     r = seg_client.post("/api/analysis/airway",
                         json={"series_uid": "1.2.3.nope", "seed_ijk": _seed()})
     assert r.status_code == 404
+
+
+def test_airway_echoes_the_reference_and_sample_slices(profile, seg_client, uid):
+    # Every sample carries its slice index, in the same inferior-to-superior
+    # order as the rest of the profile (this phantom has +k = +z).
+    ks = profile["sample_k"]
+    assert len(ks) == len(profile["csa_mm2"])
+    assert all(isinstance(k, int) for k in ks)
+    assert ks == sorted(ks)
+    for idx in (0, len(ks) - 1):
+        assert ks[idx] == round(k_of_lps(profile["centerline_lps"][idx]))
+
+    assert profile["reference"] == "auto"
+    assert profile["ref_range_k"] is None
+    assert profile["ref_method"].startswith("auto")
+    assert profile["capped_at_glottis"] is False
+
+    manual = seg_client.post("/api/analysis/airway", json={
+        "series_uid": uid, "seed_ijk": _seed(),
+        "reference": "manual", "ref_range_k": [10, 2],
+    }).json()
+    assert manual["reference"] == "manual"
+    assert manual["ref_range_k"] == [2, 10]              # sorted on the way out
+    assert manual["ref_method"] == "manual k 2..10"
+
+
+def test_airway_cap_at_glottis_trims_the_profile(seg_client, uid):
+    # A glottis mark below the narrowing: with the cap, the profile stops there
+    # and the stenosis at k 18..21 is no longer part of the graded segment.
+    glottis_k = 15
+    r = seg_client.post("/api/analysis/airway", json={
+        "series_uid": uid, "seed_ijk": _seed(),
+        "glottis_slice": glottis_k, "cap_at_glottis": True,
+    })
+    assert r.status_code == 200, r.text
+    out = r.json()
+    assert out["capped_at_glottis"] is True
+    assert max(out["sample_k"]) == glottis_k
+    assert min(out["sample_k"]) == 0
+    assert len(out["csa_mm2"]) == len(out["sample_k"])
+    # The taper towards the narrowing starts at k 14, so the last kept
+    # samples are already a little smaller than the trachea: grade I, not III.
+    assert out["stenosis_pct"] < 50.0
+    assert out["myer_cotton_grade"] == "I"
+    assert out["distance_from_glottis_mm"] is not None
+
+    # The lumen label is left whole even though the profile was trimmed.
+    stats = seg_client.get("/api/analysis/label/{i}/stats".format(
+        i=out["label_id"])).json()
+    analytic_ml = sum(math.pi * airway_radius(k) ** 2 * DZ
+                      for k in range(NZ)) / 1000.0
+    assert stats["volume_ml"] == pytest.approx(analytic_ml, rel=0.10)
+
+    # Without the flag the same glottis mark leaves the profile alone.
+    full = seg_client.post("/api/analysis/airway", json={
+        "series_uid": uid, "seed_ijk": _seed(), "glottis_slice": glottis_k,
+    }).json()
+    assert full["capped_at_glottis"] is False
+    assert max(full["sample_k"]) > glottis_k
+    assert full["myer_cotton_grade"] == "III"
+
+    # A glottis mark below the seed leaves nothing to grade -> 400.
+    r = seg_client.post("/api/analysis/airway", json={
+        "series_uid": uid, "seed_ijk": _seed(),
+        "glottis_slice": 1, "cap_at_glottis": True,
+    })
+    assert r.status_code == 400
+    assert "glottis" in r.json()["detail"].lower()
+
+
+def test_airway_walk_stops_where_the_trachea_stops(seg_client, lung_uid, profile):
+    # Without the blob the walk runs the whole tube down to the bottom slice.
+    assert min(profile["sample_k"]) == 0
+
+    r = seg_client.post("/api/analysis/airway", json={
+        "series_uid": lung_uid, "seed_ijk": _seed(),
+        "lower_hu": -1024.0, "upper_hu": -400.0,
+    })
+    assert r.status_code == 200, r.text
+    out = r.json()
+
+    # The 572 mm2 blob at k 0..3 is more than four times the 113 mm2 trachea,
+    # so the walk ends above it instead of following the merged component and
+    # dragging the centroid (and the tangent with it) out into the blob.
+    assert min(out["sample_k"]) > LUNG_K[1]
+    assert min(out["sample_k"]) <= LUNG_K[1] + 2
+    assert max(out["sample_k"]) == max(profile["sample_k"])
+
+    # No section anywhere near the blob, and the inferior end of the profile is
+    # a real tracheal cut rather than an oblique one taken on the way out.
+    csa = np.asarray(out["csa_mm2"])
+    assert csa.max() < 2.0 * math.pi * REF_RADIUS ** 2
+    assert csa[0] == pytest.approx(math.pi * REF_RADIUS ** 2, rel=0.20)
+
+    # ...so the phantom still grades as the same subglottic stenosis.
+    assert out["stenosis_pct"] == pytest.approx(ANALYTIC_PCT, abs=8.0)
+    assert out["myer_cotton_grade"] == "III"
+    k_min = k_of_lps(out["min_csa_lps"])
+    assert STENOSIS_K[0] - 1 <= k_min <= STENOSIS_K[1] + 1
+
+    # The lumen label is still grown whole -- only the profile stops early.
+    stats = seg_client.get("/api/analysis/label/{i}/stats".format(
+        i=out["label_id"])).json()
+    tube_ml = sum(math.pi * airway_radius(k) ** 2 * DZ
+                  for k in range(NZ)) / 1000.0
+    assert stats["volume_ml"] > tube_ml
+
+
+def test_centerline_walk_stops_at_a_lateral_jump():
+    """A component that swallows the previous centroid but sits 20 mm away is
+    not the lumen any more, however it was picked."""
+    from hnrad.airway import _track_centerline
+
+    nz, ny, nx = 12, 64, 64
+    mask = np.zeros((nz, ny, nx), dtype=np.uint8)
+    yy, xx = np.mgrid[0:ny, 0:nx]
+    mask[:, ((yy - 32) ** 2 + (xx - 10) ** 2) <= 16] = 1   # r = 4 px at i = 10
+    # One slice where a thin bar joins the tube: small enough not to trip the
+    # merge rule, but its centroid is 23 px (= 23 mm here) to the right.
+    mask[4, 30:34, 10:64] = 1
+
+    ks, js, is_ = _track_centerline(mask, (10, 32, 8), 1.0, 1.0)
+    assert ks.min() == 5
+    assert ks.max() == nz - 1
+    assert np.abs(is_ - 10.0).max() < 1.0

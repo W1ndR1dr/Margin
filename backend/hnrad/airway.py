@@ -6,8 +6,12 @@ adequate for the trachea/larynx" variant the spec allows:
 1. Region grow the lumen from a seed, clipped to the body mask.
 2. Track the lumen centroid slice by slice away from the seed, following the
    connected component nearest the previous centroid so a splitting or merging
-   lumen (pyriform sinuses, the carina) does not derail the walk.  Smooth the
-   track with a Gaussian along z.
+   lumen (pyriform sinuses, the carina) does not derail the walk.  The walk
+   ends when the lumen runs out, when the centroid would jump further than
+   MAX_JUMP_MM, or when every candidate component has ballooned relative to the
+   sections accepted so far -- which is what a lung apex merging into the
+   trachea below the thoracic inlet looks like.  Smooth the track with a
+   Gaussian along z.
 3. At every sample cut a 60 x 60 mm plane perpendicular to the local tangent,
    resample the label at 0.3 mm, keep the component containing the centreline
    point and measure its area and PCA diameters.
@@ -47,6 +51,13 @@ MIN_SLICE_AREA_MM2 = 1.0
 # How far the lumen centroid may jump between neighbouring slices.
 MAX_JUMP_MM = 20.0
 
+# A slice component that is more than MAX_AREA_RATIO times the running median
+# of the sections accepted so far -- and bigger than MERGE_AREA_MM2 in absolute
+# terms, so a small lumen cannot trip it on noise -- has merged with something
+# that is not the airway (a lung apex below the thoracic inlet, typically).
+MAX_AREA_RATIO = 4.0
+MERGE_AREA_MM2 = 300.0
+
 # CSA below this fraction of the reference counts as stenotic.
 STENOSIS_FRACTION = 0.7
 
@@ -84,14 +95,20 @@ def _track_centerline(
         raise AnalysisError("the seed is not inside the segmented lumen")
     min_pixels = max(1, int(round(MIN_SLICE_AREA_MM2 / (dy * dx))))
 
+    px_mm2 = float(dy) * float(dx)
     lab, n = _slice_components(mask[k0])
     if n == 0 or lab[j0, i0] == 0:
         raise AnalysisError("the seed slice has no lumen at the seed position")
-    start = ndimage.center_of_mass(lab == lab[j0, i0])
+    seed_comp = lab == lab[j0, i0]
+    seed_area = float(seed_comp.sum()) * px_mm2
+    start = ndimage.center_of_mass(seed_comp)
     track: dict[int, tuple[float, float]] = {k0: (float(start[0]), float(start[1]))}
 
     for direction in (+1, -1):
         prev = track[k0]
+        # Sections accepted so far in this direction, mm^2, so a component that
+        # suddenly dwarfs the airway can be recognised as a merge.
+        areas = [seed_area]
         k = k0 + direction
         while 0 <= k < nz:
             lab, n = _slice_components(mask[k])
@@ -99,25 +116,33 @@ def _track_centerline(
                 break
             sizes = np.bincount(lab.ravel())
             sizes[0] = 0
-            keep = [c for c in range(1, n + 1) if sizes[c] >= min_pixels]
+            biggest = max(MERGE_AREA_MM2,
+                          MAX_AREA_RATIO * float(np.median(areas)))
+            keep = [c for c in range(1, n + 1)
+                    if sizes[c] >= min_pixels and sizes[c] * px_mm2 <= biggest]
             if not keep:
                 break
             centres = ndimage.center_of_mass(lab > 0, lab, keep)
             # Prefer the component the previous centroid actually lands in.
             pj, pi = int(round(prev[0])), int(round(prev[1]))
-            chosen = None
+            pick = None
             if 0 <= pj < lab.shape[0] and 0 <= pi < lab.shape[1]:
                 here = int(lab[pj, pi])
                 if here in keep:
-                    chosen = centres[keep.index(here)]
-            if chosen is None:
+                    pick = keep.index(here)
+            if pick is None:
                 d = [((c[0] - prev[0]) * dy) ** 2 + ((c[1] - prev[1]) * dx) ** 2
                      for c in centres]
-                best = int(np.argmin(d))
-                if math.sqrt(d[best]) > MAX_JUMP_MM:
-                    break
-                chosen = centres[best]
+                pick = int(np.argmin(d))
+            chosen = centres[pick]
+            # The lumen never moves far between neighbouring slices, whichever
+            # way the component was picked.
+            step = math.hypot((chosen[0] - prev[0]) * dy,
+                              (chosen[1] - prev[1]) * dx)
+            if step > MAX_JUMP_MM:
+                break
             track[k] = (float(chosen[0]), float(chosen[1]))
+            areas.append(float(sizes[keep[pick]]) * px_mm2)
             prev = track[k]
             k += direction
 
@@ -282,9 +307,18 @@ def analyze_airway(
     glottis_slice: Optional[int] = None,
     reference: str = "auto",
     ref_range_k: Optional[Sequence[int]] = None,
+    cap_at_glottis: bool = False,
     closing_mm: float = 1.0,
 ) -> tuple[np.ndarray, dict[str, Any]]:
-    """Segment the airway and profile it.  Returns ``(mask, result)``."""
+    """Segment the airway and profile it.  Returns ``(mask, result)``.
+
+    With ``cap_at_glottis`` and a ``glottis_slice`` the profile stops at the
+    vocal folds: every centreline sample superior to that slice is dropped
+    before the sections are cut, so the minimum, the reference and the grade
+    describe the laryngotracheal airway rather than the pharynx and nose the
+    centroid walk would otherwise climb into.  The lumen label itself is left
+    whole.
+    """
     import SimpleITK as sitk
 
     t0 = time.perf_counter()
@@ -306,6 +340,23 @@ def analyze_airway(
     t_grow = time.perf_counter()
 
     ks, js, is_ = _track_centerline(mask, seed, float(dy), float(dx))
+
+    # +k is superior when the slice direction points to +z (LPS).
+    k_up = 1 if float(np.dot(vol.slice_dir, np.asarray([0.0, 0.0, 1.0]))) >= 0 else -1
+    capped = False
+    if cap_at_glottis and glottis_slice is not None:
+        gk = int(glottis_slice)
+        keep = (ks - gk) * k_up <= 0
+        if keep.sum() < ks.size:
+            capped = True
+            if keep.sum() < 3:
+                raise AnalysisError(
+                    "fewer than 3 centreline samples remain at or below the "
+                    "glottis (slice {g}); is the vocal-fold mark above the "
+                    "seed?".format(g=gk)
+                )
+            ks, js, is_ = ks[keep], js[keep], is_[keep]
+
     pts = np.column_stack([is_ * float(dx), js * float(dy),
                            ks.astype(np.float64) * float(dz)])
 
@@ -318,7 +369,7 @@ def analyze_airway(
         pts[:, 1] = ndimage.gaussian_filter1d(pts[:, 1], sigma, mode="nearest")
 
     # Order the profile inferior -> superior in the patient.
-    if float(np.dot(vol.slice_dir, np.asarray([0.0, 0.0, 1.0]))) < 0:
+    if k_up < 0:
         pts = pts[::-1]
         ks = ks[::-1]
     tangents = _smooth_tangents(pts, sigma)
@@ -353,6 +404,9 @@ def analyze_airway(
     min_idx = int(np.argmin(np.where(positive, csa, np.inf)))
 
     csa_ref, ref_how = _reference_csa(csa, min_idx, mode, ks, ref_range_k)
+    ref_used: Optional[list[int]] = None
+    if mode == "manual" and ref_range_k:
+        ref_used = sorted(int(v) for v in ref_range_k)
     min_csa = float(csa[min_idx])
     if csa_ref > 0:
         pct = 100.0 * (1.0 - min_csa / csa_ref)
@@ -392,7 +446,12 @@ def analyze_airway(
         "eq_diameter_mm": [float(v) for v in eq_diam],
         "min_diameter_mm": [float(v) for v in dmin],
         "max_diameter_mm": [float(v) for v in dmax],
+        "sample_k": [int(v) for v in ks],
         "csa_ref_mm2": float(csa_ref),
+        "reference": mode,
+        "ref_range_k": ref_used,
+        "ref_method": ref_how,
+        "capped_at_glottis": bool(capped),
         "min_csa_mm2": min_csa,
         "min_csa_index": min_idx,
         "min_csa_lps": [float(v) for v in lps[min_idx]],
